@@ -1,14 +1,10 @@
 
 using System;
 using System.Collections.Generic;
-using System.Text;
-using System.Timers;            //Para manejo del Timer
 using System.IO;                //Para manejo de Archivo de Texto
 using System.IO.Ports;          //Para manejo del Puerto
 using System.Threading;         //Para manejo del Timer
 using System.Windows.Forms;     //Para alcanzar la ruta de los ejecutables
-using System.Runtime.InteropServices;
-using POSstation.Protocolos;
 using System.Net.Sockets;
 using System.Net;
 
