@@ -1,0 +1,1729 @@
+//namespace gasolutions.Protocolos.Wayne_Duplex
+//{
+//    using gasolutions.Protocolos;
+//    using SharedEventsFuelStation;
+//    using System;
+//    using System.Collections;
+//    using System.Collections.Generic;
+//    using System.IO;
+//    using System.IO.Ports;
+//    using System.Threading;
+
+//    public class Wayne_Duplex
+//    {
+//        private string Archivo;
+//        private string ArchivoTramas;
+//        private string AuxiliarLectura;
+//        private byte CaraEncuestada;
+//        private ComandoSurtidor ComandoCaras;
+//        private bool CondicionCiclo = true;
+//        private int eco;
+//        private bool FalloComunicacion;
+//        private CMensaje oEventos;
+//        private Dictionary<byte, RedSurtidor> PropiedadesCara;
+//        private SerialPort PuertoCom = new SerialPort();
+//        private StreamWriter SWRegistro;
+//        private StreamWriter SWTramas;
+//        private int TimeOut;
+//        private bool TramaEco;
+//        private byte[] TramaRx = new byte[1];
+//        private byte[] TramaTx = new byte[1];
+
+//        public Wayne_Duplex(string Puerto, Dictionary<byte, RedSurtidor> EstructuraCaras, bool Eco)
+//        {
+//            try
+//            {
+//                if (!Directory.Exists(Environment.CurrentDirectory + "/LogueoProtocolo"))
+//                {
+//                    Directory.CreateDirectory(Environment.CurrentDirectory + "/LogueoProtocolo/");
+//                }
+//                this.ArchivoTramas = Environment.CurrentDirectory + "/LogueoProtocolo/" + DateTime.Now.ToString("yyyyMMdd") + "-Wayne-Tramas(" + Puerto + ").txt";
+//                this.SWTramas = File.AppendText(this.ArchivoTramas);
+//                this.Archivo = Environment.CurrentDirectory + "/LogueoProtocolo/" + DateTime.Now.ToString("yyyyMMdd") + "- Wayne-Sucesos(" + Puerto + ").txt";
+//                this.SWRegistro = File.AppendText(this.Archivo);
+//                this.SWRegistro.WriteLine("===================|==|======|=========================================");
+//                this.SWRegistro.WriteLine(DateTime.Now + "|0|Inicio|Protocolo. Wayne_Duplex 2011.12.30-1055");
+//                this.SWRegistro.Flush();
+//                Type typeFromProgID = Type.GetTypeFromProgID("SharedEventsFuelStation.CMensaje");
+//                this.oEventos = (CMensaje)Activator.CreateInstance(typeFromProgID);
+//                oEventos.VentaAutorizada += new SharedEventsFuelStation.__CMensaje_VentaAutorizadaEventHandler(oEvento_VentaAutorizada);
+//                oEventos.TurnoAbierto += new SharedEventsFuelStation.__CMensaje_TurnoAbiertoEventHandler(oEvento_TurnoAbierto);
+//                oEventos.TurnoCerrado += new SharedEventsFuelStation.__CMensaje_TurnoCerradoEventHandler(oEvento_TurnoCerrado);
+//                //oEventos.ProgramarCambioPrecioKardex += new SharedEventsFuelStation.__CMensaje_ProgramarCambioPrecioKardexEventHandler(oEventos_ProgramarCambioPrecioKardex);
+//                oEventos.FinalizarVentaPorMonitoreoCHIP += new SharedEventsFuelStation.__CMensaje_FinalizarVentaPorMonitoreoCHIPEventHandler(oEventos_FinalizarVentaPorMonitoreoCHIP);
+//                oEventos.CerrarProtocolo += new SharedEventsFuelStation.__CMensaje_CerrarProtocoloEventHandler(oEventos_CerrarProtocolo);
+//                if (!this.PuertoCom.IsOpen)
+//                {
+//                    this.PuertoCom.PortName = Puerto;
+//                    this.PuertoCom.BaudRate = 0x2580;
+//                    this.PuertoCom.DataBits = 8;
+//                    this.PuertoCom.StopBits = StopBits.One;
+//                    this.PuertoCom.Parity = Parity.Odd;
+//                    this.PuertoCom.Open();
+//                    this.PuertoCom.DiscardInBuffer();
+//                    this.PuertoCom.DiscardOutBuffer();
+//                }
+//                this.PropiedadesCara = new Dictionary<byte, RedSurtidor>();
+//                this.PropiedadesCara = EstructuraCaras;
+//                this.TramaEco = Eco;
+//                new Thread(new ThreadStart(this.CicloCara)).Start();
+//            }
+//            catch (Exception exception)
+//            {
+//                this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.PropiedadesCara.Count, "|Excepcion|Wayne: ", exception }));
+//                this.SWRegistro.Flush();
+//            }
+//        }
+
+//        private void AnalizarTrama()
+//        {
+//            try
+//            {
+//                switch (this.ComandoCaras)
+//                {
+//                    case ComandoSurtidor.Estado:
+//                        this.RecuperarEstado();
+//                        return;
+
+//                    case ComandoSurtidor.Autorizar:
+//                    case ComandoSurtidor.Predeterminar:
+//                        return;
+
+//                    case ComandoSurtidor.ObtenerPrecio:
+//                    case ComandoSurtidor.EstalecerPrecio:
+//                        this.PropiedadesCara[this.CaraEncuestada].ListaGrados[this.PropiedadesCara[this.CaraEncuestada].GradoCara].PrecioSurtidorNivel1 = Convert.ToDecimal(Convert.ToInt32(this.TramaRx[10].ToString("X2") + this.TramaRx[8].ToString("X2"), 0x10)) / Convert.ToDecimal(this.PropiedadesCara[this.CaraEncuestada].FactorPrecio);
+//                        return;
+
+//                    case ComandoSurtidor.ObtenerVentaDinero:
+//                        this.PropiedadesCara[this.CaraEncuestada].TotalVenta = Convert.ToDecimal(this.TramaRx[10].ToString("X2") + this.TramaRx[8].ToString("X2") + this.TramaRx[6].ToString("X2")) / this.PropiedadesCara[this.CaraEncuestada].FactorImporte;
+//                        return;
+
+//                    case ComandoSurtidor.ObtenerVentaVolumen:
+//                        this.PropiedadesCara[this.CaraEncuestada].Volumen = Convert.ToDecimal(this.TramaRx[10].ToString("X2") + this.TramaRx[8].ToString("X2") + this.TramaRx[6].ToString("X2")) / this.PropiedadesCara[this.CaraEncuestada].FactorVolumen;
+//                        return;
+
+//                    case ComandoSurtidor.ObtenerTotalizador_I:
+//                        this.AuxiliarLectura = this.TramaRx[10].ToString("X2") + this.TramaRx[8].ToString("X2");
+//                        return;
+
+//                    case ComandoSurtidor.ObtenerTotalizador_II:
+//                        this.AuxiliarLectura = this.AuxiliarLectura + this.TramaRx[10].ToString("X2") + this.TramaRx[8].ToString("X2");
+//                        this.PropiedadesCara[this.CaraEncuestada].ListaGrados[this.PropiedadesCara[this.CaraEncuestada].GradoCara].Lectura = Convert.ToDecimal(this.AuxiliarLectura) / this.PropiedadesCara[this.CaraEncuestada].FactorTotalizador;
+//                        return;
+
+//                    case ComandoSurtidor.ObtenerTotalizadorImporte_I:
+//                        this.AuxiliarLectura = this.TramaRx[10].ToString("X2") + this.TramaRx[8].ToString("X2");
+//                        return;
+
+//                    case ComandoSurtidor.ObtenerTotalizadorImporte_II:
+//                        this.AuxiliarLectura = this.AuxiliarLectura + this.TramaRx[10].ToString("X2") + this.TramaRx[8].ToString("X2");
+//                        this.PropiedadesCara[this.CaraEncuestada].ListaGrados[this.PropiedadesCara[this.CaraEncuestada].GradoCara].LecturaImporte = Convert.ToDecimal(this.AuxiliarLectura) / this.PropiedadesCara[this.CaraEncuestada].FactorTotalizadorImporte;
+//                        return;
+//                }
+//            }
+//            catch (Exception exception)
+//            {
+//                this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, "|Excepcion|AnalizarTrama:  | ComandoCaras :", this.ComandoCaras, " | ", exception }));
+//                this.SWRegistro.Flush();
+//            }
+//        }
+
+//        private void ArmarTramaTx()
+//        {
+//            try
+//            {
+//                byte num;
+//                byte[] buffer;
+//                switch (this.ComandoCaras)
+//                {
+//                    case ComandoSurtidor.Estado:
+//                        this.TimeOut = 400;
+//                        num = this.AsignacionCaraClaseI();
+//                        buffer = new byte[5];
+//                        buffer[2] = num;
+//                        buffer[4] = 0xff;
+//                        this.TramaTx = buffer;
+//                        break;
+
+//                    case ComandoSurtidor.Autorizar:
+//                        this.TimeOut = 300;
+//                        num = this.AsignacionCaraClaseII();
+//                        buffer = new byte[] { 0, 0, 0, 0, 0x8f, 0, 0x20, 0, 0, 0, 0, 0, 0xff };
+//                        buffer[2] = num;
+//                        this.TramaTx = buffer;
+//                        break;
+
+//                    case ComandoSurtidor.ObtenerPrecio:
+//                        this.TimeOut = 400;
+//                        num = this.AsignacionCaraClaseIII();
+//                        buffer = new byte[13];
+//                        buffer[2] = num;
+//                        buffer[6] = (byte)this.PropiedadesCara[this.CaraEncuestada].GradoCara;
+//                        buffer[12] = 0xff;
+//                        this.TramaTx = buffer;
+//                        break;
+
+//                    case ComandoSurtidor.EstalecerPrecio:
+//                        {
+//                            this.TimeOut = 400;
+//                            num = this.AsignacionCaraClaseIII();
+//                            string str = Convert.ToInt32((decimal)(this.PropiedadesCara[this.CaraEncuestada].ListaGrados[this.PropiedadesCara[this.CaraEncuestada].GradoCara].PrecioNivel1 * this.PropiedadesCara[this.CaraEncuestada].FactorPrecio)).ToString("X2").PadLeft(4, '0');
+//                            byte num2 = Convert.ToByte(str.Substring(str.Length - 4, 2), 0x10);
+//                            byte num3 = Convert.ToByte(str.Substring(str.Length - 2, 2), 0x10);
+//                            buffer = new byte[13];
+//                            buffer[2] = num;
+//                            buffer[4] = 1;
+//                            buffer[6] = (byte)this.PropiedadesCara[this.CaraEncuestada].GradoCara;
+//                            buffer[8] = num3;
+//                            buffer[10] = num2;
+//                            buffer[12] = 0xff;
+//                            this.TramaTx = buffer;
+//                            break;
+//                        }
+//                    case ComandoSurtidor.Predeterminar:
+//                        {
+//                            this.TimeOut = 200;
+//                            num = this.AsignacionCaraClaseIII();
+//                            string str2 = Convert.ToInt64((decimal)(this.PropiedadesCara[this.CaraEncuestada].ValorPredeterminado * this.PropiedadesCara[this.CaraEncuestada].FactorImporte)).ToString().PadLeft(6, '0');
+//                            byte num4 = Convert.ToByte(str2.Substring(str2.Length - 6, 2), 0x10);
+//                            byte num5 = Convert.ToByte(str2.Substring(str2.Length - 4, 2), 0x10);
+//                            byte num6 = Convert.ToByte(str2.Substring(str2.Length - 2, 2), 0x10);
+//                            buffer = new byte[13];
+//                            buffer[2] = num;
+//                            buffer[4] = 0x21;
+//                            buffer[6] = num6;
+//                            buffer[8] = num5;
+//                            buffer[10] = num4;
+//                            buffer[12] = 0xff;
+//                            this.TramaTx = buffer;
+//                            break;
+//                        }
+//                    case ComandoSurtidor.ObtenerTotalizador_I:
+//                        this.TimeOut = 400;
+//                        num = this.AsignacionCaraClaseIII();
+//                        buffer = new byte[13];
+//                        buffer[2] = num;
+//                        buffer[4] = 2;
+//                        buffer[6] = (byte)(this.PropiedadesCara[this.CaraEncuestada].GradoCara + 0x30);
+//                        buffer[12] = 0xff;
+//                        this.TramaTx = buffer;
+//                        break;
+
+//                    case ComandoSurtidor.ObtenerTotalizador_II:
+//                        this.TimeOut = 400;
+//                        num = this.AsignacionCaraClaseIII();
+//                        buffer = new byte[13];
+//                        buffer[2] = num;
+//                        buffer[4] = 4;
+//                        buffer[6] = (byte)(this.PropiedadesCara[this.CaraEncuestada].GradoCara + 0x30);
+//                        buffer[12] = 0xff;
+//                        this.TramaTx = buffer;
+//                        break;
+
+//                    case ComandoSurtidor.ObtenerTotalizadorImporte_I:
+//                        this.TimeOut = 400;
+//                        num = this.AsignacionCaraClaseIII();
+//                        buffer = new byte[13];
+//                        buffer[2] = num;
+//                        buffer[4] = 2;
+//                        buffer[6] = (byte)this.PropiedadesCara[this.CaraEncuestada].GradoCara;
+//                        buffer[12] = 0xff;
+//                        this.TramaTx = buffer;
+//                        break;
+
+//                    case ComandoSurtidor.ObtenerTotalizadorImporte_II:
+//                        this.TimeOut = 400;
+//                        num = this.AsignacionCaraClaseIII();
+//                        buffer = new byte[13];
+//                        buffer[2] = num;
+//                        buffer[4] = 4;
+//                        buffer[6] = (byte)this.PropiedadesCara[this.CaraEncuestada].GradoCara;
+//                        buffer[12] = 0xff;
+//                        this.TramaTx = buffer;
+//                        break;
+
+//                    case ComandoSurtidor.OffEstado_AF:
+//                        this.TimeOut = 400;
+//                        num = this.AsignacionCaraClaseII();
+//                        buffer = new byte[] { 0, 0, 0, 0, 0x87, 0, 0x10, 0, 0, 0, 0, 0, 0xff };
+//                        buffer[2] = num;
+//                        this.TramaTx = buffer;
+//                        break;
+//                }
+//                for (int i = 3; i < (this.TramaTx.Length - 1); i += 2)
+//                {
+//                    this.TramaTx[i] = Convert.ToByte((int)(0xff - this.TramaTx[i - 1]));
+//                }
+//            }
+//            catch (Exception exception)
+//            {
+//                this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, " ComandoCaras: ", this.ComandoCaras, "|Excepcion|ArmarTramaTx: ", exception }));
+//                this.SWRegistro.Flush();
+//            }
+//        }
+
+//        private byte AsignacionCaraClaseI()
+//        {
+//            try
+//            {
+//                byte num = 0;
+//                switch (this.CaraEncuestada)
+//                {
+//                    case 1:
+//                        num = 9;
+//                        break;
+
+//                    case 2:
+//                        num = 0x11;
+//                        break;
+
+//                    case 3:
+//                        num = 0x19;
+//                        break;
+
+//                    case 4:
+//                        num = 0x21;
+//                        break;
+
+//                    case 5:
+//                        num = 0x29;
+//                        break;
+
+//                    case 6:
+//                        num = 0x31;
+//                        break;
+
+//                    case 7:
+//                        num = 0x39;
+//                        break;
+
+//                    case 8:
+//                        num = 0x41;
+//                        break;
+
+//                    case 9:
+//                        num = 0x49;
+//                        break;
+
+//                    case 10:
+//                        num = 0x51;
+//                        break;
+
+//                    case 11:
+//                        num = 0x59;
+//                        break;
+
+//                    case 12:
+//                        num = 0x61;
+//                        break;
+
+//                    case 13:
+//                        num = 0x69;
+//                        break;
+
+//                    case 14:
+//                        num = 0x71;
+//                        break;
+
+//                    case 15:
+//                        num = 0x79;
+//                        break;
+
+//                    case 0x10:
+//                        num = 0x81;
+//                        break;
+//                }
+//                return num;
+//            }
+//            catch (Exception exception)
+//            {
+//                this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, "|Excepcion|AsignacionCaraClaseI: ", exception }));
+//                this.SWRegistro.Flush();
+//                return 0;
+//            }
+//        }
+
+//        private byte AsignacionCaraClaseII()
+//        {
+//            try
+//            {
+//                byte num = 0;
+//                switch (this.CaraEncuestada)
+//                {
+//                    case 1:
+//                        num = 8;
+//                        break;
+
+//                    case 2:
+//                        num = 0x10;
+//                        break;
+
+//                    case 3:
+//                        num = 0x18;
+//                        break;
+
+//                    case 4:
+//                        num = 0x20;
+//                        break;
+
+//                    case 5:
+//                        num = 40;
+//                        break;
+
+//                    case 6:
+//                        num = 0x30;
+//                        break;
+
+//                    case 7:
+//                        num = 0x38;
+//                        break;
+
+//                    case 8:
+//                        num = 0x40;
+//                        break;
+
+//                    case 9:
+//                        num = 0x48;
+//                        break;
+
+//                    case 10:
+//                        num = 80;
+//                        break;
+
+//                    case 11:
+//                        num = 0x58;
+//                        break;
+
+//                    case 12:
+//                        num = 0x60;
+//                        break;
+
+//                    case 13:
+//                        num = 0x68;
+//                        break;
+
+//                    case 14:
+//                        num = 0x70;
+//                        break;
+
+//                    case 15:
+//                        num = 120;
+//                        break;
+
+//                    case 0x10:
+//                        num = 0x80;
+//                        break;
+//                }
+//                return num;
+//            }
+//            catch (Exception exception)
+//            {
+//                this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, "|Excepcion|AsignacionCaraClaseII: ", exception }));
+//                this.SWRegistro.Flush();
+//                return 0;
+//            }
+//        }
+
+//        private byte AsignacionCaraClaseIII()
+//        {
+//            try
+//            {
+//                byte num = 0;
+//                switch (this.CaraEncuestada)
+//                {
+//                    case 1:
+//                        num = 15;
+//                        break;
+
+//                    case 2:
+//                        num = 0x17;
+//                        break;
+
+//                    case 3:
+//                        num = 0x1f;
+//                        break;
+
+//                    case 4:
+//                        num = 0x27;
+//                        break;
+
+//                    case 5:
+//                        num = 0x2f;
+//                        break;
+
+//                    case 6:
+//                        num = 0x37;
+//                        break;
+
+//                    case 7:
+//                        num = 0x3f;
+//                        break;
+
+//                    case 8:
+//                        num = 0x47;
+//                        break;
+
+//                    case 9:
+//                        num = 0x4f;
+//                        break;
+
+//                    case 10:
+//                        num = 0x57;
+//                        break;
+
+//                    case 11:
+//                        num = 0x5f;
+//                        break;
+
+//                    case 12:
+//                        num = 0x67;
+//                        break;
+
+//                    case 13:
+//                        num = 0x6f;
+//                        break;
+
+//                    case 14:
+//                        num = 0x77;
+//                        break;
+
+//                    case 15:
+//                        num = 0x7f;
+//                        break;
+
+//                    case 0x10:
+//                        num = 0x87;
+//                        break;
+//                }
+//                return num;
+//            }
+//            catch (Exception exception)
+//            {
+//                this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, "|Excepcion|AsignacionCaraClaseIII: ", exception }));
+//                this.SWRegistro.Flush();
+//                return 0;
+//            }
+//        }
+
+//        private void CicloCara()
+//        {
+//            try
+//            {
+//                this.CondicionCiclo = true;
+//                this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|0|Inicio|Inicia ciclo de encuesta a ", this.PropiedadesCara.Count, " caras" }));
+//                this.SWRegistro.Flush();
+//                foreach (RedSurtidor surtidor in this.PropiedadesCara.Values)
+//                {
+//                    this.CaraEncuestada = surtidor.Cara;
+//                    this.ProcesoEnvioComando(ComandoSurtidor.Estado);
+//                    if (this.PropiedadesCara[this.CaraEncuestada].Estado == EstadoCara.WayneFinDespachoForzado)
+//                    {
+//                        this.ProcesoEnvioComando(ComandoSurtidor.OffEstado_AF);
+//                        this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, "|Reset Estado WaynePredeterminada al Iniciar Protocolo" }));
+//                        this.SWRegistro.Flush();
+//                    }
+//                    Thread.Sleep(20);
+//                }
+//                foreach (RedSurtidor surtidor2 in this.PropiedadesCara.Values)
+//                {
+//                    foreach (Grados grados in this.PropiedadesCara[surtidor2.Cara].ListaGrados)
+//                    {
+//                        this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", surtidor2.Cara, "|Inicio|Grado: ", grados.NoGrado, " - Manguera: ", grados.MangueraBD, " - IdProducto: ", grados.IdProducto, " - Precio: ", grados.PrecioNivel1, " - Venta Parcial: ", surtidor2.EsVentaParcial }));
+//                        this.SWRegistro.Flush();
+//                        this.PropiedadesCara[this.CaraEncuestada].GradoCara = grados.NoGrado;
+//                        this.CaraEncuestada = surtidor2.Cara;
+//                        this.ProcesoTomaLectura();
+//                        this.PropiedadesCara[this.CaraEncuestada].ListaGrados[this.PropiedadesCara[this.CaraEncuestada].GradoCara].LecturaInicialVenta = this.PropiedadesCara[this.CaraEncuestada].ListaGrados[this.PropiedadesCara[this.CaraEncuestada].GradoCara].Lectura;
+//                    }
+//                }
+//                while (this.CondicionCiclo)
+//                {
+//                    this.VerifySizeFile();
+//                    foreach (RedSurtidor surtidor in this.PropiedadesCara.Values)
+//                    {
+//                        if (surtidor.Activa)
+//                        {
+//                            this.CaraEncuestada = surtidor.Cara;
+//                            if (this.ProcesoEnvioComando(ComandoSurtidor.Estado))
+//                            {
+//                                this.TomarAccion();
+//                            }
+//                        }
+//                        Thread.Sleep(20);
+//                    }
+//                }
+//            }
+//            catch (Exception exception)
+//            {
+//                this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, "|Excepcion|Wayne: ", exception }));
+//                this.SWRegistro.Flush();
+//            }
+//        }
+
+//        private bool ComprobarIntegridadTrama()
+//        {
+//            try
+//            {
+//                if ((this.TramaRx[0] == 0) && (this.TramaRx[1] == 0))
+//                {
+//                    if (this.TramaRx[12] == 0xff)
+//                    {
+//                        for (int i = 2; i <= 10; i += 2)
+//                        {
+//                            if (this.TramaRx[i + 1] != (0xff - this.TramaRx[i]))
+//                            {
+//                                return false;
+//                            }
+//                        }
+//                        return true;
+//                    }
+//                    this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, "|Fallo|Fin de Trama Erroneo: ", this.TramaRx[12].ToString("X2") }));
+//                    this.SWRegistro.Flush();
+//                    return false;
+//                }
+//                this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, "|Fallo|Inicio de Trama Erroneo: ", this.TramaRx[0].ToString("X2"), " ", this.TramaRx[1].ToString("X2") }));
+//                this.SWRegistro.Flush();
+//                return false;
+//            }
+//            catch (Exception exception)
+//            {
+//                this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, "|Excepcion|ComprobacionIntegridadTrama: ", exception }));
+//                this.SWRegistro.Flush();
+//                return false;
+//            }
+//        }
+
+//        private void EnviarComando()
+//        {
+//            try
+//            {
+//                this.PuertoCom.DiscardOutBuffer();
+//                this.PuertoCom.DiscardInBuffer();
+//                this.PuertoCom.Write(this.TramaTx, 0, this.TramaTx.Length);
+//                string str = "";
+//                for (int i = 0; i <= (this.TramaTx.Length - 1); i++)
+//                {
+//                    str = str + this.TramaTx[i].ToString("X2") + "|";
+//                }
+//                this.SWTramas.WriteLine(string.Concat(new object[] { 
+//                    DateTime.Now.Day.ToString().PadLeft(2, '0'), "/", DateTime.Now.Month.ToString().PadLeft(2, '0'), "/", DateTime.Now.Year.ToString().PadLeft(4, '0'), "|", DateTime.Now.Hour.ToString().PadLeft(2, '0'), ":", DateTime.Now.Minute.ToString().PadLeft(2, '0'), ":", DateTime.Now.Second.ToString().PadLeft(2, '0'), ".", DateTime.Now.Millisecond.ToString().PadLeft(3, '0'), "|", this.CaraEncuestada, "|Tx|", 
+//                    this.ComandoCaras, "|", str
+//                 }));
+//                this.SWTramas.Flush();
+//                this.eco = Convert.ToByte(this.TramaTx.Length);
+//                Thread.Sleep(this.TimeOut);
+//            }
+//            catch (Exception exception)
+//            {
+//                this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, "|Excepcion|EnviarComando: ", exception }));
+//                this.SWRegistro.Flush();
+//            }
+//        }
+
+//        private void LecturaAperturaCierre()
+//        {
+//            try
+//            {
+//                bool flag = true;
+//                this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, "|Proceso|Inicia Toma de Lectura para Apertura/Cierre de Turno" }));
+//                this.SWRegistro.Flush();
+//                ArrayList list = new ArrayList();
+//                foreach (Grados grados in this.PropiedadesCara[this.CaraEncuestada].ListaGrados)
+//                {
+//                    this.PropiedadesCara[this.CaraEncuestada].GradoCara = grados.NoGrado;
+//                    if (this.ProcesoTomaLectura())
+//                    {
+//                        list.Add(Convert.ToString(this.PropiedadesCara[this.CaraEncuestada].ListaGrados[grados.NoGrado].MangueraBD) + "|" + Convert.ToString(this.PropiedadesCara[this.CaraEncuestada].ListaGrados[grados.NoGrado].Lectura) + "|" + Convert.ToString(this.PropiedadesCara[this.CaraEncuestada].ListaGrados[grados.NoGrado].PrecioSurtidorNivel1));
+//                        this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, "|Proceso|Arma Lecturas para turno. Manguera ", this.PropiedadesCara[this.CaraEncuestada].ListaGrados[grados.NoGrado].MangueraBD, " - Lectura ", this.PropiedadesCara[this.CaraEncuestada].ListaGrados[grados.NoGrado].Lectura }));
+//                        this.SWRegistro.Flush();
+//                        if (this.PropiedadesCara[this.CaraEncuestada].TomarLecturaAperturaTurno)
+//                        {
+//                            this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, "|Proceso|Inicia cambio de precios" }));
+//                            this.SWRegistro.Flush();
+//                            this.ProcesoCambioPrecio();
+//                        }
+//                    }
+//                    else
+//                    {
+//                        flag = false;
+//                        this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, "|Fallo|No respondio comando de obtener Totalizador para Lectura Inicial/Final de Turno. Grado: ", grados.NoGrado }));
+//                        this.SWRegistro.Flush();
+//                        break;
+//                    }
+//                }
+//                if (flag)
+//                {
+//                    Array array = Array.CreateInstance(typeof(string), list.Count);
+//                    list.CopyTo(array);
+//                    if (this.PropiedadesCara[this.CaraEncuestada].TomarLecturaCierreTurno)
+//                    {
+//                        this.oEventos.InformarLecturaFinalTurno(ref array);
+//                        this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, "|Evento|Informa Lecturas Finales de turno" }));
+//                        this.SWRegistro.Flush();
+//                        this.PropiedadesCara[this.CaraEncuestada].TomarLecturaCierreTurno = false;
+//                    }
+//                    if (this.PropiedadesCara[this.CaraEncuestada].TomarLecturaAperturaTurno)
+//                    {
+//                        this.oEventos.InformarLecturaInicialTurno(ref array);
+//                        this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, "|Evento|Informa Lecturas Iniciales de turno" }));
+//                        this.SWRegistro.Flush();
+//                        this.PropiedadesCara[this.CaraEncuestada].TomarLecturaAperturaTurno = false;
+//                    }
+//                }
+//            }
+//            catch (Exception exception)
+//            {
+//                this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, "|Excepcion|LecturaAperturaCierre: ", exception }));
+//                this.SWRegistro.Flush();
+//            }
+//        }
+
+//        private void oEvento_TurnoAbierto(ref string Surtidores, ref string PuertoTerminal, ref Array Precios)
+//        {
+//            try
+//            {
+//                this.SWRegistro.WriteLine(DateTime.Now + "|0|Evento|Recibido (TurnoAbierto). Surtidores: " + Surtidores);
+//                this.SWRegistro.Flush();
+//                Dictionary<int, Grados> dictionary = new Dictionary<int, Grados>();
+//                foreach (string str in Precios)
+//                {
+//                    Grados grados = new Grados();
+//                    string[] strArray = str.Split(new char[] { '|' });
+//                    grados.IdProducto = Convert.ToByte(strArray[0]);
+//                    grados.PrecioNivel1 = Convert.ToDecimal(strArray[1]);
+//                    grados.PrecioNivel2 = Convert.ToDecimal(strArray[2]);
+//                    grados.MangueraBD = Convert.ToInt16(strArray[3]);
+//                    if (!dictionary.ContainsKey(grados.MangueraBD))
+//                    {
+//                        dictionary.Add(grados.MangueraBD, grados);
+//                    }
+//                    else
+//                    {
+//                        dictionary[grados.MangueraBD].IdProducto = grados.IdProducto;
+//                        dictionary[grados.MangueraBD].PrecioNivel1 = grados.PrecioNivel1;
+//                        dictionary[grados.MangueraBD].PrecioNivel2 = grados.PrecioNivel2;
+//                    }
+//                }
+//                string[] strArray2 = Surtidores.Split(new char[] { '|' });
+//                for (int i = 0; i <= (strArray2.Length - 1); i++)
+//                {
+//                    if (!string.IsNullOrEmpty(strArray2[i]))
+//                    {
+//                        int num3;
+//                        byte key = Convert.ToByte((int)((Convert.ToInt16(strArray2[i]) * 2) - 1));
+//                        if (this.PropiedadesCara.ContainsKey(key))
+//                        {
+//                            this.PropiedadesCara[key].FalloTomaLecturaTurno = false;
+//                            if (this.PropiedadesCara[key].Activa)
+//                            {
+//                                this.PropiedadesCara[key].TomarLecturaAperturaTurno = true;
+//                            }
+//                            num3 = 0;
+//                            while (num3 <= (this.PropiedadesCara[key].ListaGrados.Count - 1))
+//                            {
+//                                this.PropiedadesCara[key].ListaGrados[num3].PrecioNivel1 = dictionary[this.PropiedadesCara[key].ListaGrados[num3].MangueraBD].PrecioNivel1;
+//                                this.PropiedadesCara[key].ListaGrados[num3].PrecioNivel2 = dictionary[this.PropiedadesCara[key].ListaGrados[num3].MangueraBD].PrecioNivel2;
+//                                num3++;
+//                            }
+//                        }
+//                        key = Convert.ToByte((int)(Convert.ToInt16(strArray2[i]) * 2));
+//                        if (this.PropiedadesCara.ContainsKey(key))
+//                        {
+//                            this.PropiedadesCara[key].FalloTomaLecturaTurno = false;
+//                            if (this.PropiedadesCara[key].Activa)
+//                            {
+//                                this.PropiedadesCara[key].TomarLecturaAperturaTurno = true;
+//                            }
+//                            for (num3 = 0; num3 <= (this.PropiedadesCara[key].ListaGrados.Count - 1); num3++)
+//                            {
+//                                this.PropiedadesCara[key].ListaGrados[num3].PrecioNivel1 = dictionary[this.PropiedadesCara[key].ListaGrados[num3].MangueraBD].PrecioNivel1;
+//                                this.PropiedadesCara[key].ListaGrados[num3].PrecioNivel2 = dictionary[this.PropiedadesCara[key].ListaGrados[num3].MangueraBD].PrecioNivel2;
+//                            }
+//                        }
+//                    }
+//                }
+//            }
+//            catch (Exception exception)
+//            {
+//                this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", Surtidores, "|Excepcion|oEvento_TurnoAbierto: ", exception }));
+//                this.SWRegistro.Flush();
+//            }
+//        }
+
+//        private void oEvento_TurnoCerrado(ref string Surtidores, ref string PuertoTerminal)
+//        {
+//            try
+//            {
+//                this.SWRegistro.WriteLine(DateTime.Now + "|0|Evento|Recibido (TurnoCerrado). Surtidores: " + Surtidores);
+//                this.SWRegistro.Flush();
+//                string[] strArray = Surtidores.Split(new char[] { '|' });
+//                for (int i = 0; i <= (strArray.Length - 1); i++)
+//                {
+//                    if (!string.IsNullOrEmpty(strArray[i]))
+//                    {
+//                        byte key = Convert.ToByte((int)((Convert.ToInt16(strArray[i]) * 2) - 1));
+//                        if (this.PropiedadesCara.ContainsKey(key))
+//                        {
+//                            this.PropiedadesCara[key].FalloTomaLecturaTurno = false;
+//                            if (this.PropiedadesCara[key].Activa)
+//                            {
+//                                this.PropiedadesCara[key].TomarLecturaCierreTurno = true;
+//                            }
+//                        }
+//                        key = Convert.ToByte((int)(Convert.ToInt16(strArray[i]) * 2));
+//                        if (this.PropiedadesCara.ContainsKey(key))
+//                        {
+//                            this.PropiedadesCara[key].FalloTomaLecturaTurno = false;
+//                            if (this.PropiedadesCara[key].Activa)
+//                            {
+//                                this.PropiedadesCara[key].TomarLecturaCierreTurno = true;
+//                            }
+//                        }
+//                    }
+//                }
+//            }
+//            catch (Exception exception)
+//            {
+//                this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", Surtidores, "|Excepcion|oEvento_TurnoCerrado: ", exception }));
+//                this.SWRegistro.Flush();
+//            }
+//        }
+
+//        private void oEvento_VentaAutorizada(ref byte Cara, ref string Precio, ref string ValorProgramado, ref byte TipoProgramacion, ref string Placa, ref int MangueraProgramada, ref bool EsVentaGerenciada)
+//        {
+//            try
+//            {
+//                if (this.PropiedadesCara.ContainsKey(Cara))
+//                {
+//                    this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", (byte)Cara, "|Evento|Recibe Autorizacion. Valor Programado ", ValorProgramado, " - Tipo de Programacion: ", (byte)TipoProgramacion, " - Manguera: ", (int)MangueraProgramada, " - Gerenciada: ", (bool)EsVentaGerenciada }));
+//                    this.SWRegistro.Flush();
+//                    this.PropiedadesCara[Cara].AutorizarCara = true;
+//                    this.PropiedadesCara[Cara].ValorPredeterminado = Convert.ToDecimal((string)ValorProgramado);
+//                    this.PropiedadesCara[Cara].PrecioVenta = Convert.ToDecimal((string)Precio);
+//                    this.PropiedadesCara[Cara].EsVentaGerenciada = EsVentaGerenciada;
+//                    if (this.PropiedadesCara[Cara].ValorPredeterminado != 0M)
+//                    {
+//                        if (TipoProgramacion == 1)
+//                        {
+//                            this.PropiedadesCara[Cara].PredeterminarImporte = false;
+//                            this.PropiedadesCara[Cara].PredeterminarVolumen = true;
+//                        }
+//                        else
+//                        {
+//                            this.PropiedadesCara[Cara].PredeterminarImporte = true;
+//                            this.PropiedadesCara[Cara].PredeterminarVolumen = false;
+//                        }
+//                    }
+//                    else
+//                    {
+//                        this.PropiedadesCara[Cara].PredeterminarImporte = false;
+//                        this.PropiedadesCara[Cara].PredeterminarVolumen = false;
+//                    }
+//                }
+//            }
+//            catch (Exception exception)
+//            {
+//                this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", (byte)Cara, "|Excepcion|oEvento_VentaAutorizada: ", exception }));
+//                this.SWRegistro.Flush();
+//            }
+//        }
+
+//        private void oEventos_CerrarProtocolo()
+//        {
+//            try
+//            {
+//                this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, "|Evento|Recibe evento de detencion de Protocolo" }));
+//                this.SWRegistro.Flush();
+//                this.CondicionCiclo = false;
+//            }
+//            catch (Exception exception)
+//            {
+//                this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, "|Excepcion|oEventosCerrarProtocolo: ", exception }));
+//                this.SWRegistro.Flush();
+//            }
+//        }
+
+//        private void oEventos_FinalizarVentaPorMonitoreoCHIP(ref byte Cara)
+//        {
+//            try
+//            {
+//                if (this.PropiedadesCara.ContainsKey(Cara))
+//                {
+//                    this.PropiedadesCara[Cara].DetenerVentaCara = true;
+//                    this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", Convert.ToString((byte)Cara), "|Evento|Recibe Detencion por Monitoreo de Chip" }));
+//                    this.SWRegistro.Flush();
+//                }
+//            }
+//            catch (Exception exception)
+//            {
+//                this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", (byte)Cara, "|Excepcion|oEVento_FinalizarVentaPorMonitoreoCHIP: ", exception }));
+//                this.SWRegistro.Flush();
+//            }
+//        }
+
+//        private void ProcesoCambioPrecio()
+//        {
+//            try
+//            {
+//                this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, "|Proceso|Cambio Precio Grado ", this.PropiedadesCara[this.CaraEncuestada].GradoCara, " - Precio: ", this.PropiedadesCara[this.CaraEncuestada].ListaGrados[this.PropiedadesCara[this.CaraEncuestada].GradoCara].PrecioNivel1 }));
+//                this.SWRegistro.Flush();
+//                if (this.ProcesoEnvioComando(ComandoSurtidor.EstalecerPrecio))
+//                {
+//                    if (this.PropiedadesCara[this.CaraEncuestada].ListaGrados[this.PropiedadesCara[this.CaraEncuestada].GradoCara].PrecioSurtidorNivel1 == this.PropiedadesCara[this.CaraEncuestada].ListaGrados[this.PropiedadesCara[this.CaraEncuestada].GradoCara].PrecioNivel1)
+//                    {
+//                        this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, "|Proceso|Precio aceptado por cara. Grado ", this.PropiedadesCara[this.CaraEncuestada].GradoCara, " - Precio: ", this.PropiedadesCara[this.CaraEncuestada].ListaGrados[this.PropiedadesCara[this.CaraEncuestada].GradoCara].PrecioNivel1 }));
+//                        this.SWRegistro.Flush();
+//                    }
+//                    else
+//                    {
+//                        this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, "|Proceso|Precio rechazado por cara. Grado ", this.PropiedadesCara[this.CaraEncuestada].GradoCara }));
+//                        this.SWRegistro.Flush();
+//                    }
+//                }
+//                else
+//                {
+//                    this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, "|Fallo|No respondio comando Establecer Precio" }));
+//                    this.SWRegistro.Flush();
+//                }
+//            }
+//            catch (Exception exception)
+//            {
+//                this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, "|Excepcion|ProcesoCambioPrecio: ", exception }));
+//                this.SWRegistro.Flush();
+//            }
+//        }
+
+//        private bool ProcesoEnvioComando(ComandoSurtidor ComandoaEnviar)
+//        {
+//            try
+//            {
+//                this.ComandoCaras = ComandoaEnviar;
+//                int num = 6;
+//                int num2 = 0;
+//                this.FalloComunicacion = false;
+//                this.ArmarTramaTx();
+//                do
+//                {
+//                    this.EnviarComando();
+//                    this.RecibirInformacion();
+//                    num2++;
+//                }
+//                while (this.FalloComunicacion && (num2 < num));
+//                if (this.FalloComunicacion)
+//                {
+//                    if (!this.PropiedadesCara[this.CaraEncuestada].FalloTomaLecturaTurno)
+//                    {
+//                        bool flag;
+//                        string mensaje = "Error en Comunicacion con Surtidor";
+//                        if (this.PropiedadesCara[this.CaraEncuestada].TomarLecturaAperturaTurno)
+//                        {
+//                            flag = false;
+//                            this.PropiedadesCara[this.CaraEncuestada].TomarLecturaAperturaTurno = false;
+//                            this.oEventos.ReportarCancelacionTurno(ref this.CaraEncuestada, ref mensaje, ref flag);
+//                            this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, "|Fallo|Fallo en toma de Lecturas Inciales.", mensaje }));
+//                            this.SWRegistro.Flush();
+//                        }
+//                        if (this.PropiedadesCara[this.CaraEncuestada].TomarLecturaCierreTurno)
+//                        {
+//                            flag = true;
+//                            this.PropiedadesCara[this.CaraEncuestada].TomarLecturaCierreTurno = false;
+//                            this.oEventos.ReportarCancelacionTurno(ref this.CaraEncuestada, ref mensaje, ref flag);
+//                            this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, "|Fallo|Fallo en toma de Lecturas Finales.", mensaje }));
+//                            this.SWRegistro.Flush();
+//                        }
+//                        this.PropiedadesCara[this.CaraEncuestada].FalloTomaLecturaTurno = true;
+//                    }
+//                    if (!this.PropiedadesCara[this.CaraEncuestada].FalloReportado)
+//                    {
+//                        this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, "|Fallo|Perdida de comunicacion en ", ComandoaEnviar }));
+//                        this.SWRegistro.Flush();
+//                        this.PropiedadesCara[this.CaraEncuestada].FalloReportado = true;
+//                    }
+//                    return false;
+//                }
+//                if (this.PropiedadesCara[this.CaraEncuestada].FalloReportado)
+//                {
+//                    this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, "|Proceso|Se reestablece comunciaci\x00f3n con surtidor en ", ComandoaEnviar }));
+//                    this.SWRegistro.Flush();
+//                    this.PropiedadesCara[this.CaraEncuestada].FalloReportado = false;
+//                }
+//                return true;
+//            }
+//            catch (Exception exception)
+//            {
+//                this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, "|Excepcion|ProcesoEnviocomando: ", exception }));
+//                this.SWRegistro.Flush();
+//                return false;
+//            }
+//        }
+
+//        private void ProcesoFindeVenta()
+//        {
+//            try
+//            {
+//                this.PropiedadesCara[this.CaraEncuestada].Volumen = 0M;
+//                this.PropiedadesCara[this.CaraEncuestada].TotalVenta = 0M;
+//                this.PropiedadesCara[this.CaraEncuestada].PrecioVenta = 0M;
+//                this.PropiedadesCara[this.CaraEncuestada].GradoCara = this.PropiedadesCara[this.CaraEncuestada].GradoVenta;
+//                if (this.PropiedadesCara[this.CaraEncuestada].GradoVentaInicial != this.PropiedadesCara[this.CaraEncuestada].GradoVenta)
+//                {
+//                    this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, "|Inconsistencia|Grado autorizado: ", this.PropiedadesCara[this.CaraEncuestada].GradoVentaInicial, " - Grado que vendio: ", this.PropiedadesCara[this.CaraEncuestada].GradoVenta }));
+//                    this.SWRegistro.Flush();
+//                }
+//                if (this.ProcesoEnvioComando(ComandoSurtidor.ObtenerPrecio))
+//                {
+//                    this.PropiedadesCara[this.CaraEncuestada].PrecioVenta = this.PropiedadesCara[this.CaraEncuestada].ListaGrados[this.PropiedadesCara[this.CaraEncuestada].GradoVenta].PrecioSurtidorNivel1;
+//                }
+//                if (!this.ProcesoTomaLectura())
+//                {
+//                    this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, "|Fallo|No acepto comando de obtencion de totalizadores para Lectura Final de Venta" }));
+//                    this.SWRegistro.Flush();
+//                    this.PropiedadesCara[this.CaraEncuestada].ListaGrados[this.PropiedadesCara[this.CaraEncuestada].GradoVenta].LecturaFinalVenta = 0M;
+//                }
+//                else
+//                {
+//                    this.PropiedadesCara[this.CaraEncuestada].ListaGrados[this.PropiedadesCara[this.CaraEncuestada].GradoVenta].LecturaFinalVenta = this.PropiedadesCara[this.CaraEncuestada].ListaGrados[this.PropiedadesCara[this.CaraEncuestada].GradoVenta].Lectura;
+//                }
+//                if (!this.ProcesoTomaLecturaImporte())
+//                {
+//                    this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, "|Fallo|No acepto comando de obtencion de totalizadores para Lectura Final de Importe" }));
+//                    this.SWRegistro.Flush();
+//                    this.PropiedadesCara[this.CaraEncuestada].ListaGrados[this.PropiedadesCara[this.CaraEncuestada].GradoVenta].LecturaFinalImporte = 0M;
+//                }
+//                else
+//                {
+//                    this.PropiedadesCara[this.CaraEncuestada].ListaGrados[this.PropiedadesCara[this.CaraEncuestada].GradoVenta].LecturaFinalImporte = this.PropiedadesCara[this.CaraEncuestada].ListaGrados[this.PropiedadesCara[this.CaraEncuestada].GradoVenta].LecturaImporte;
+//                }
+//                this.PropiedadesCara[this.CaraEncuestada].TotalVenta = (this.PropiedadesCara[this.CaraEncuestada].ListaGrados[this.PropiedadesCara[this.CaraEncuestada].GradoVenta].LecturaFinalImporte - this.PropiedadesCara[this.CaraEncuestada].ListaGrados[this.PropiedadesCara[this.CaraEncuestada].GradoVenta].LecturaInicialImporte) / this.PropiedadesCara[this.CaraEncuestada].FactorImporte;
+//                if (this.PropiedadesCara[this.CaraEncuestada].TotalVenta != 0M)
+//                {
+//                    this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, "|Final de Venta, Importe Calculado: ", this.PropiedadesCara[this.CaraEncuestada].TotalVenta.ToString("N3") }));
+//                    this.SWRegistro.Flush();
+//                }
+//                this.PropiedadesCara[this.CaraEncuestada].Volumen = this.PropiedadesCara[this.CaraEncuestada].TotalVenta / this.PropiedadesCara[this.CaraEncuestada].PrecioVenta;
+//                if (this.PropiedadesCara[this.CaraEncuestada].Volumen != 0M)
+//                {
+//                    this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, "|Final de Venta, Volumen Calculado: ", this.PropiedadesCara[this.CaraEncuestada].Volumen.ToString("N3") }));
+//                    this.SWRegistro.Flush();
+//                }
+//                if (this.PropiedadesCara[this.CaraEncuestada].Volumen <= 0M)
+//                {
+//                    this.PropiedadesCara[this.CaraEncuestada].Volumen = (this.PropiedadesCara[this.CaraEncuestada].ListaGrados[this.PropiedadesCara[this.CaraEncuestada].GradoVenta].LecturaFinalVenta - this.PropiedadesCara[this.CaraEncuestada].ListaGrados[this.PropiedadesCara[this.CaraEncuestada].GradoVenta].LecturaInicialVenta) / this.PropiedadesCara[this.CaraEncuestada].FactorVolumen;
+//                    this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, "|Final de Venta, Volumen Calculado por Diferencia VF - VI = ", this.PropiedadesCara[this.CaraEncuestada].Volumen.ToString("N3") }));
+//                    this.SWRegistro.Flush();
+//                }
+//                if (this.PropiedadesCara[this.CaraEncuestada].TotalVenta <= 0M)
+//                {
+//                    this.PropiedadesCara[this.CaraEncuestada].TotalVenta = this.PropiedadesCara[this.CaraEncuestada].Volumen * this.PropiedadesCara[this.CaraEncuestada].PrecioVenta;
+//                    this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, "|Final de Venta, Importe Calculado por Diferencia Vol*P.venta =", this.PropiedadesCara[this.CaraEncuestada].TotalVenta.ToString("N3") }));
+//                    this.SWRegistro.Flush();
+//                }
+//                //se quito la validacion de plata solo volumen
+//                if ((this.PropiedadesCara[this.CaraEncuestada].ListaGrados[this.PropiedadesCara[this.CaraEncuestada].GradoVenta].LecturaFinalVenta - this.PropiedadesCara[this.CaraEncuestada].ListaGrados[this.PropiedadesCara[this.CaraEncuestada].GradoVenta].LecturaInicialVenta) != 0M)
+//                {
+//                    string str = this.PropiedadesCara[this.CaraEncuestada].TotalVenta.ToString("N3");
+//                    string str2 = this.PropiedadesCara[this.CaraEncuestada].PrecioVenta.ToString("N3");
+//                    string str3 = this.PropiedadesCara[this.CaraEncuestada].ListaGrados[this.PropiedadesCara[this.CaraEncuestada].GradoVenta].LecturaFinalVenta.ToString("N3");
+//                    string str4 = this.PropiedadesCara[this.CaraEncuestada].ListaGrados[this.PropiedadesCara[this.CaraEncuestada].GradoVenta].LecturaInicialVenta.ToString("N3");
+//                    string str5 = this.PropiedadesCara[this.CaraEncuestada].Volumen.ToString("N3");
+//                    string str6 = this.PropiedadesCara[this.CaraEncuestada].ListaGrados[this.PropiedadesCara[this.CaraEncuestada].GradoVenta].LecturaFinalImporte.ToString("N3");
+//                    string str7 = this.PropiedadesCara[this.CaraEncuestada].ListaGrados[this.PropiedadesCara[this.CaraEncuestada].GradoVenta].LecturaInicialImporte.ToString("N3");
+//                    byte num = Convert.ToByte(this.PropiedadesCara[this.CaraEncuestada].ListaGrados[this.PropiedadesCara[this.CaraEncuestada].GradoVenta].IdProducto);
+//                    int mangueraBD = this.PropiedadesCara[this.CaraEncuestada].ListaGrados[this.PropiedadesCara[this.CaraEncuestada].GradoVenta].MangueraBD;
+//                    this.PropiedadesCara[this.CaraEncuestada].EsVentaParcial = false;
+//                    this.SWRegistro.WriteLine(string.Concat(new object[] { 
+//                        DateTime.Now, "|", this.CaraEncuestada, "|Evento|InformarFinalizacionVenta. Importe: ", str, " - Precio: ", str2, " - Lectura Inicial: ", str4, " - Lectura Final: ", str3, " - Volumen: ", str5, " - Producto: ", num, " - Manguera: ", 
+//                        mangueraBD
+//                     }));
+//                    this.SWRegistro.Flush();
+//                    string str8 = "0";
+//                    this.oEventos.InformarFinalizacionVenta(ref this.CaraEncuestada, ref str, ref str2, ref str3, ref str5, ref num, ref mangueraBD, ref str8, ref str4);
+//                    this.PropiedadesCara[this.CaraEncuestada].ListaGrados[this.PropiedadesCara[this.CaraEncuestada].GradoVenta].LecturaInicialVenta = this.PropiedadesCara[this.CaraEncuestada].ListaGrados[this.PropiedadesCara[this.CaraEncuestada].GradoVenta].LecturaFinalVenta;
+//                    this.PropiedadesCara[this.CaraEncuestada].ListaGrados[this.PropiedadesCara[this.CaraEncuestada].GradoVenta].LecturaInicialImporte = this.PropiedadesCara[this.CaraEncuestada].ListaGrados[this.PropiedadesCara[this.CaraEncuestada].GradoVenta].LecturaFinalImporte;
+//                }
+//                else if (this.PropiedadesCara[this.CaraEncuestada].GradoVentaInicial != this.PropiedadesCara[this.CaraEncuestada].GradoVenta)
+//                {
+//                    this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, "|Inconsistencia|Grado autorizado: ", this.PropiedadesCara[this.CaraEncuestada].GradoVentaInicial, " - Grado que vendio: ", this.PropiedadesCara[this.CaraEncuestada].GradoVenta, " |Proceso|ProcesoFindeVenta " }));
+//                    this.SWRegistro.Flush();
+//                    this.PropiedadesCara[this.CaraEncuestada].GradoVenta = this.PropiedadesCara[this.CaraEncuestada].GradoVentaInicial;
+//                    this.ProcesoFindeVenta();
+//                }
+//                else
+//                {
+//                    this.oEventos.ReportarVentaEnCero(ref this.CaraEncuestada);
+//                    this.PropiedadesCara[this.CaraEncuestada].EsVentaParcial = false;
+//                    this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, "|Proceso|Venta en CERO" }));
+//                    this.SWRegistro.Flush();
+//                }
+//                this.PropiedadesCara[this.CaraEncuestada].EsVentaParcial = false;
+//            }
+//            catch (Exception exception)
+//            {
+//                this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, "|Excepcion|ProcesoFindeVenta: ", exception }));
+//                this.SWRegistro.Flush();
+//            }
+//        }
+
+//        private bool ProcesoTomaLectura()
+//        {
+//            try
+//            {
+//                if (this.ProcesoEnvioComando(ComandoSurtidor.ObtenerTotalizador_I))
+//                {
+//                    if (this.ProcesoEnvioComando(ComandoSurtidor.ObtenerTotalizador_II))
+//                    {
+//                        this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, "|Proceso|Toma de Totalizador Vol Exitoso: ", this.PropiedadesCara[this.CaraEncuestada].ListaGrados[this.PropiedadesCara[this.CaraEncuestada].GradoCara].Lectura }));
+//                        this.SWRegistro.Flush();
+//                        return true;
+//                    }
+//                    this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, "|Fallo|No respondio comando de obtener Totalizador_II" }));
+//                    this.SWRegistro.Flush();
+//                    return false;
+//                }
+//                this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, "|Fallo|No respondio comando de obtener Totalizador_I" }));
+//                this.SWRegistro.Flush();
+//                return false;
+//            }
+//            catch (Exception exception)
+//            {
+//                this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, "|Excepcion|ProcesoTomaLectura: ", exception }));
+//                this.SWRegistro.Flush();
+//                return false;
+//            }
+//        }
+
+//        private bool ProcesoTomaLecturaImporte()
+//        {
+//            try
+//            {
+//                if (this.ProcesoEnvioComando(ComandoSurtidor.ObtenerTotalizadorImporte_I))
+//                {
+//                    if (this.ProcesoEnvioComando(ComandoSurtidor.ObtenerTotalizadorImporte_II))
+//                    {
+//                        this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, "|Proceso|Toma de lecturas Importe Exitoso: ", this.PropiedadesCara[this.CaraEncuestada].ListaGrados[this.PropiedadesCara[this.CaraEncuestada].GradoCara].LecturaImporte }));
+//                        this.SWRegistro.Flush();
+//                        return true;
+//                    }
+//                    this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, "|Fallo|No respondio comando de obtener ObtenerTotalizadorImporte_II" }));
+//                    this.SWRegistro.Flush();
+//                    return false;
+//                }
+//                this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, "|Fallo|No respondio comando de obtener ObtenerTotalizadorImporte_I" }));
+//                this.SWRegistro.Flush();
+//                return false;
+//            }
+//            catch (Exception exception)
+//            {
+//                this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, "|Excepcion|ObtenerTotalizadorImporte: ", exception }));
+//                this.SWRegistro.Flush();
+//                return false;
+//            }
+//        }
+
+//        private void RecibirInformacion()
+//        {
+//            try
+//            {
+//                int bytesToRead = this.PuertoCom.BytesToRead;
+//                if (!this.TramaEco)
+//                {
+//                    this.eco = 0;
+//                }
+//                int num2 = 13 + this.eco;
+//                if (bytesToRead > 0)
+//                {
+//                    int num3;
+//                    byte[] buffer = new byte[bytesToRead];
+//                    this.PuertoCom.Read(buffer, 0, bytesToRead);
+//                    this.PuertoCom.DiscardInBuffer();
+//                    this.TramaRx = new byte[buffer.Length - this.eco];
+//                    for (num3 = 0; num3 <= ((buffer.Length - this.eco) - 1); num3++)
+//                    {
+//                        this.TramaRx[num3] = buffer[num3 + this.eco];
+//                    }
+//                    string str = "";
+//                    for (num3 = 0; num3 <= (this.TramaRx.Length - 1); num3++)
+//                    {
+//                        str = str + this.TramaRx[num3].ToString("X2") + "|";
+//                    }
+//                    this.SWTramas.WriteLine(string.Concat(new object[] { 
+//                        DateTime.Now.Day.ToString().PadLeft(2, '0'), "/", DateTime.Now.Month.ToString().PadLeft(2, '0'), "/", DateTime.Now.Year.ToString().PadLeft(4, '0'), "|", DateTime.Now.Hour.ToString().PadLeft(2, '0'), ":", DateTime.Now.Minute.ToString().PadLeft(2, '0'), ":", DateTime.Now.Second.ToString().PadLeft(2, '0'), ".", DateTime.Now.Millisecond.ToString().PadLeft(3, '0'), "|", this.CaraEncuestada, "|Rx|", 
+//                        this.ComandoCaras, "|", str
+//                     }));
+//                    this.SWTramas.Flush();
+//                    if (this.ComprobarIntegridadTrama())
+//                    {
+//                        this.FalloComunicacion = false;
+//                        this.AnalizarTrama();
+//                    }
+//                    else
+//                    {
+//                        this.FalloComunicacion = true;
+//                        this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, "|Fallo|Comando ", this.ComandoCaras, ". Bytes con fallo en integridad de trama" }));
+//                        this.SWRegistro.Flush();
+//                    }
+//                }
+//                else if (!this.FalloComunicacion)
+//                {
+//                    this.FalloComunicacion = true;
+//                    if (!this.PropiedadesCara[this.CaraEncuestada].FalloReportado)
+//                    {
+//                        this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, "|Fallo|", this.ComandoCaras, ". Bytes Esperados: ", num2, " - Bytes Recibidos: ", bytesToRead }));
+//                        this.SWRegistro.Flush();
+//                    }
+//                }
+//            }
+//            catch (Exception exception)
+//            {
+//                this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, "|Excepcion|RecibirInformacion: ", exception }));
+//                this.SWRegistro.Flush();
+//            }
+//        }
+
+//        private void RecuperarEstado()
+//        {
+//            try
+//            {
+//                if (this.PropiedadesCara[this.CaraEncuestada].EstadoAnterior != this.PropiedadesCara[this.CaraEncuestada].Estado)
+//                {
+//                    this.PropiedadesCara[this.CaraEncuestada].EstadoAnterior = this.PropiedadesCara[this.CaraEncuestada].Estado;
+//                }
+//                switch ((Convert.ToInt16(this.TramaRx[10]) & 15))
+//                {
+//                    case 7:
+//                    case 0x27:
+//                        if ((this.PropiedadesCara[this.CaraEncuestada].EstadoAnterior == EstadoCara.WayneDescolgada) || this.PropiedadesCara[this.CaraEncuestada].EsVentaParcial)
+//                        {
+//                            this.PropiedadesCara[this.CaraEncuestada].Estado = EstadoCara.WayneFinDespacho;
+//                        }
+//                        else
+//                        {
+//                            this.PropiedadesCara[this.CaraEncuestada].Estado = EstadoCara.CoritecBloqueado_ON;
+//                        }
+//                        break;
+//                }
+//                switch (this.TramaRx[10])
+//                {
+//                    case 0:
+//                    case 1:
+//                    case 2:
+//                    case 3:
+//                        this.PropiedadesCara[this.CaraEncuestada].Estado = EstadoCara.WayneReposo;
+//                        this.PropiedadesCara[this.CaraEncuestada].GradoVenta = this.TramaRx[10];
+//                        break;
+
+//                    case 7:
+//                    case 0x27:
+//                        if ((this.PropiedadesCara[this.CaraEncuestada].EstadoAnterior == EstadoCara.WayneDescolgada) || this.PropiedadesCara[this.CaraEncuestada].EsVentaParcial)
+//                        {
+//                            this.PropiedadesCara[this.CaraEncuestada].Estado = EstadoCara.WayneFinDespacho;
+//                        }
+//                        else
+//                        {
+//                            this.PropiedadesCara[this.CaraEncuestada].Estado = EstadoCara.CoritecBloqueado_ON;
+//                        }
+//                        break;
+
+//                    case 15:
+//                        this.PropiedadesCara[this.CaraEncuestada].Estado = EstadoCara.WayneFinDespachoForzado;
+//                        break;
+
+//                    case 0x20:
+//                    case 0x21:
+//                    case 0x22:
+//                    case 0x23:
+//                        this.PropiedadesCara[this.CaraEncuestada].Estado = EstadoCara.WayneReposo;
+//                        this.PropiedadesCara[this.CaraEncuestada].GradoVenta = this.TramaRx[10] - 0x20;
+//                        break;
+
+//                    case 0xf1:
+//                        this.PropiedadesCara[this.CaraEncuestada].Estado = EstadoCara.WaynePredeterminada;
+//                        break;
+
+//                    case 0xf5:
+//                        this.PropiedadesCara[this.CaraEncuestada].Estado = EstadoCara.WayneDespachoAutorizado;
+//                        break;
+
+//                    case 0x88:
+//                    case 0xa8:
+//                        this.PropiedadesCara[this.CaraEncuestada].Estado = EstadoCara.WayneDescolgada;
+//                        this.PropiedadesCara[this.CaraEncuestada].GradoVenta = 0;
+//                        break;
+
+//                    case 0x89:
+//                    case 0xa9:
+//                        this.PropiedadesCara[this.CaraEncuestada].Estado = EstadoCara.WayneDescolgada;
+//                        this.PropiedadesCara[this.CaraEncuestada].GradoVenta = 1;
+//                        break;
+
+//                    case 0x8a:
+//                    case 170:
+//                        this.PropiedadesCara[this.CaraEncuestada].Estado = EstadoCara.WayneDescolgada;
+//                        this.PropiedadesCara[this.CaraEncuestada].GradoVenta = 2;
+//                        break;
+
+//                    case 0x8b:
+//                    case 0xab:
+//                        this.PropiedadesCara[this.CaraEncuestada].Estado = EstadoCara.WayneDescolgada;
+//                        this.PropiedadesCara[this.CaraEncuestada].GradoVenta = 3;
+//                        break;
+
+//                    case 0x8f:
+//                    case 0xaf:
+//                        this.PropiedadesCara[this.CaraEncuestada].Estado = EstadoCara.WayneDespacho;
+//                        break;
+
+//                    default:
+//                        this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, "|Proceso|Estado Indeterminado: ", this.TramaRx[10].ToString("X2") }));
+//                        this.SWRegistro.Flush();
+//                        break;
+//                }
+//                this.PropiedadesCara[this.CaraEncuestada].Volumen = Convert.ToDecimal(Convert.ToInt32(this.TramaRx[6].ToString("X2") + this.TramaRx[4].ToString("X2"), 0x10)) / this.PropiedadesCara[this.CaraEncuestada].FactorVolumen;
+//                this.PropiedadesCara[this.CaraEncuestada].TotalVenta = this.PropiedadesCara[this.CaraEncuestada].Volumen * this.PropiedadesCara[this.CaraEncuestada].ListaGrados[this.PropiedadesCara[this.CaraEncuestada].GradoVenta].PrecioNivel1;
+//                if (this.PropiedadesCara[this.CaraEncuestada].EstadoAnterior != this.PropiedadesCara[this.CaraEncuestada].Estado)
+//                {
+//                    this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, "|Estado|", this.PropiedadesCara[this.CaraEncuestada].Estado.ToString() }));
+//                }
+//                this.SWRegistro.Flush();
+//            }
+//            catch (Exception exception)
+//            {
+//                this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, "|Excepcion|RecuperarEstado: ", exception }));
+//                this.SWRegistro.Flush();
+//            }
+//        }
+
+//        private void TomarAccion()
+//        {
+//            try
+//            {
+//                int mangueraBD;
+//                string str;
+//                bool flag;
+//                string str6;
+//                string str7;
+//                bool flag2;
+//                bool flag3;
+//                string str8;
+//                switch (this.PropiedadesCara[this.CaraEncuestada].Estado)
+//                {
+//                    case EstadoCara.CoritecBloqueado_ON:
+//                        if (this.PropiedadesCara[this.CaraEncuestada].EstadoAnterior != this.PropiedadesCara[this.CaraEncuestada].Estado)
+//                        {
+//                            mangueraBD = this.PropiedadesCara[this.CaraEncuestada].ListaGrados[this.PropiedadesCara[this.CaraEncuestada].GradoVenta].MangueraBD;
+//                            this.oEventos.InformarCaraEnReposo(ref this.CaraEncuestada, ref mangueraBD);
+//                            this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, "|Evento|Informa cara en Espera. Grado ", mangueraBD }));
+//                            this.SWRegistro.Flush();
+//                        }
+//                        if (this.PropiedadesCara[this.CaraEncuestada].TomarLecturaAperturaTurno || this.PropiedadesCara[this.CaraEncuestada].TomarLecturaCierreTurno)
+//                        {
+//                            this.LecturaAperturaCierre();
+//                        }
+//                        this.PropiedadesCara[this.CaraEncuestada].ContadorError = 0;
+//                        return;
+
+//                    case EstadoCara.WayneReposo:
+//                        if (!this.PropiedadesCara[this.CaraEncuestada].FalloTomaLecturaTurno)
+//                        {
+//                            str = "Manguera descolgada";
+//                            if (this.PropiedadesCara[this.CaraEncuestada].TomarLecturaAperturaTurno)
+//                            {
+//                                flag = false;
+//                                this.PropiedadesCara[this.CaraEncuestada].TomarLecturaAperturaTurno = false;
+//                                this.oEventos.ReportarCancelacionTurno(ref this.CaraEncuestada, ref str, ref flag);
+//                                this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, "|Fallo|Fallo en toma de Lecturas Iniciales: ", str }));
+//                                this.SWRegistro.Flush();
+//                            }
+//                            if (this.PropiedadesCara[this.CaraEncuestada].TomarLecturaCierreTurno)
+//                            {
+//                                flag = true;
+//                                this.PropiedadesCara[this.CaraEncuestada].TomarLecturaCierreTurno = false;
+//                                this.oEventos.ReportarCancelacionTurno(ref this.CaraEncuestada, ref str, ref flag);
+//                                this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, "|Fallo|Fallo en toma de Lecturas Finales. ", str }));
+//                                this.SWRegistro.Flush();
+//                            }
+//                            this.PropiedadesCara[this.CaraEncuestada].FalloTomaLecturaTurno = true;
+//                        }
+//                        if ((this.PropiedadesCara[this.CaraEncuestada].EstadoAnterior != this.PropiedadesCara[this.CaraEncuestada].Estado) && !this.PropiedadesCara[this.CaraEncuestada].EsVentaParcial)
+//                        {
+//                            this.PropiedadesCara[this.CaraEncuestada].GradoCara = this.PropiedadesCara[this.CaraEncuestada].GradoVenta;
+//                            if (!this.ProcesoEnvioComando(ComandoSurtidor.ObtenerPrecio))
+//                            {
+//                                break;
+//                            }
+//                            if (this.ProcesoTomaLectura())
+//                            {
+//                                int idProducto = this.PropiedadesCara[this.CaraEncuestada].ListaGrados[this.PropiedadesCara[this.CaraEncuestada].GradoVenta].IdProducto;
+//                                mangueraBD = this.PropiedadesCara[this.CaraEncuestada].ListaGrados[this.PropiedadesCara[this.CaraEncuestada].GradoVenta].MangueraBD;
+//                                string lectura = this.PropiedadesCara[this.CaraEncuestada].ListaGrados[this.PropiedadesCara[this.CaraEncuestada].GradoVenta].Lectura.ToString("N3");
+//                                this.oEventos.RequerirAutorizacion(ref this.CaraEncuestada, ref idProducto, ref mangueraBD, ref lectura);
+//                                this.PropiedadesCara[this.CaraEncuestada].GradoVentaInicial = this.PropiedadesCara[this.CaraEncuestada].GradoVenta;
+//                                this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, "|Evento|Informa requerimiento de autorizacion. Grado: ", this.PropiedadesCara[this.CaraEncuestada].GradoVenta, " - Producto: ", idProducto, " - Manguera: ", mangueraBD, " - Lectura: ", lectura, " - Precio: ", this.PropiedadesCara[this.CaraEncuestada].ListaGrados[this.PropiedadesCara[this.CaraEncuestada].GradoCara].PrecioNivel1 }));
+//                                this.SWRegistro.Flush();
+//                            }
+//                            else
+//                            {
+//                                this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, "|Fallo|No respondio comando de obtener Totalizador para Lectura Inicial Venta" }));
+//                                this.SWRegistro.Flush();
+//                            }
+//                            if (this.ProcesoTomaLecturaImporte())
+//                            {
+//                                string str3 = this.PropiedadesCara[this.CaraEncuestada].ListaGrados[this.PropiedadesCara[this.CaraEncuestada].GradoVenta].LecturaImporte.ToString("N3");
+//                            }
+//                        }
+//                        goto Label_06CF;
+
+//                    case EstadoCara.WayneDescolgada:
+//                        {
+//                            if (!this.PropiedadesCara[this.CaraEncuestada].FalloTomaLecturaTurno)
+//                            {
+//                                str = "Cara en Despacho";
+//                                if (this.PropiedadesCara[this.CaraEncuestada].TomarLecturaAperturaTurno)
+//                                {
+//                                    flag = false;
+//                                    this.PropiedadesCara[this.CaraEncuestada].TomarLecturaAperturaTurno = false;
+//                                    this.oEventos.ReportarCancelacionTurno(ref this.CaraEncuestada, ref str, ref flag);
+//                                    this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, "|Fallo|Fallo en toma de Lecturas Iniciales: ", str }));
+//                                    this.SWRegistro.Flush();
+//                                }
+//                                if (this.PropiedadesCara[this.CaraEncuestada].TomarLecturaCierreTurno)
+//                                {
+//                                    flag = true;
+//                                    this.PropiedadesCara[this.CaraEncuestada].TomarLecturaCierreTurno = false;
+//                                    this.oEventos.ReportarCancelacionTurno(ref this.CaraEncuestada, ref str, ref flag);
+//                                    this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, "|Fallo|Fallo en toma de Lecturas Finales: ", str }));
+//                                    this.SWRegistro.Flush();
+//                                }
+//                                this.PropiedadesCara[this.CaraEncuestada].FalloTomaLecturaTurno = true;
+//                            }
+//                            if (this.PropiedadesCara[this.CaraEncuestada].AutorizarCara)
+//                            {
+//                                this.PropiedadesCara[this.CaraEncuestada].AutorizarCara = false;
+//                            }
+//                            if (!this.PropiedadesCara[this.CaraEncuestada].EsVentaParcial)
+//                            {
+//                                this.PropiedadesCara[this.CaraEncuestada].EsVentaParcial = true;
+//                            }
+//                            string valor = this.PropiedadesCara[this.CaraEncuestada].TotalVenta.ToString("N3");
+//                            string cantidad = this.PropiedadesCara[this.CaraEncuestada].Volumen.ToString("N3");
+//                            this.oEventos.InformarVentaParcial(ref this.CaraEncuestada, ref valor, ref cantidad);
+//                            return;
+//                        }
+//                    case EstadoCara.WayneDespacho:
+//                    case EstadoCara.WayneFinDespacho:
+//                        if (this.PropiedadesCara[this.CaraEncuestada].EstadoAnterior != EstadoCara.WayneDespacho)
+//                        {
+//                            this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, "|Estado Anterior: ", this.PropiedadesCara[this.CaraEncuestada].EstadoAnterior, "|Estado :", this.PropiedadesCara[this.CaraEncuestada].Estado }));
+//                            this.SWRegistro.Flush();
+//                            this.ProcesoEnvioComando(ComandoSurtidor.OffEstado_AF);
+//                        }
+//                        if (!this.PropiedadesCara[this.CaraEncuestada].FalloTomaLecturaTurno)
+//                        {
+//                            str = "Cara en fin de despacho";
+//                            if (this.PropiedadesCara[this.CaraEncuestada].TomarLecturaAperturaTurno)
+//                            {
+//                                flag = false;
+//                                this.PropiedadesCara[this.CaraEncuestada].TomarLecturaAperturaTurno = false;
+//                                this.oEventos.ReportarCancelacionTurno(ref this.CaraEncuestada, ref str, ref flag);
+//                                this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, "|Fallo|Fallo en toma deLecturas Iniciales: ", str }));
+//                                this.SWRegistro.Flush();
+//                            }
+//                            if (this.PropiedadesCara[this.CaraEncuestada].TomarLecturaCierreTurno)
+//                            {
+//                                flag = true;
+//                                this.PropiedadesCara[this.CaraEncuestada].TomarLecturaCierreTurno = false;
+//                                this.oEventos.ReportarCancelacionTurno(ref this.CaraEncuestada, ref str, ref flag);
+//                                this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, "|Fallo|Fallo en toma deLecturas Finales: ", str }));
+//                                this.SWRegistro.Flush();
+//                            }
+//                            this.PropiedadesCara[this.CaraEncuestada].FalloTomaLecturaTurno = true;
+//                        }
+//                        if (this.PropiedadesCara[this.CaraEncuestada].EsVentaParcial)
+//                        {
+//                            this.ProcesoFindeVenta();
+//                        }
+//                        return;
+
+//                    case EstadoCara.WayneFinDespachoForzado:
+//                        {
+//                            if (this.PropiedadesCara[this.CaraEncuestada].EstadoAnterior != EstadoCara.WayneFinDespachoForzado)
+//                            {
+//                                goto Label_1E71;
+//                            }
+//                            RedSurtidor local1 = this.PropiedadesCara[this.CaraEncuestada];
+//                            local1.ContadorError++;
+//                            if (this.PropiedadesCara[this.CaraEncuestada].ContadorError != 600)
+//                            {
+//                                goto Label_1E71;
+//                            }
+//                            str6 = Convert.ToString(this.CaraEncuestada);
+//                            str7 = "Error al Predeterminar, Tiempo Max. Por Favor Cuelgue la Manguera, predetermine el valor antes de levantar la manguera para realizar la venta satisfactoriamente en la cara: ";
+//                            str7 = str7 + str6;
+//                            flag2 = true;
+//                            flag3 = false;
+//                            str8 = "COM1";
+//                            this.oEventos.ReportarExcepcion(ref str7, ref flag2, ref flag3, ref str8);
+//                            this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, "| Impresi\x00f3n de Error en predeterminaci\x00f3n" }));
+//                            this.SWRegistro.Flush();
+//                            if (!this.ProcesoEnvioComando(ComandoSurtidor.OffEstado_AF))
+//                            {
+//                                goto Label_1D39;
+//                            }
+//                            this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, " |Reset del Estado WaynePredeterminada Tiempo Max Surtidor Bloqueado." }));
+//                            this.SWRegistro.Flush();
+//                            goto Label_1D91;
+//                        }
+//                    case EstadoCara.WaynePredeterminada:
+//                        if (!this.PropiedadesCara[this.CaraEncuestada].FalloTomaLecturaTurno)
+//                        {
+//                            str = "Cara Autorizada";
+//                            if (this.PropiedadesCara[this.CaraEncuestada].TomarLecturaAperturaTurno)
+//                            {
+//                                flag = false;
+//                                this.PropiedadesCara[this.CaraEncuestada].TomarLecturaAperturaTurno = false;
+//                                this.oEventos.ReportarCancelacionTurno(ref this.CaraEncuestada, ref str, ref flag);
+//                                this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, "|Fallo|Fallo en toma de Lecturas Iniciales: ", str }));
+//                                this.SWRegistro.Flush();
+//                            }
+//                            if (this.PropiedadesCara[this.CaraEncuestada].TomarLecturaCierreTurno)
+//                            {
+//                                flag = true;
+//                                this.PropiedadesCara[this.CaraEncuestada].TomarLecturaCierreTurno = false;
+//                                this.oEventos.ReportarCancelacionTurno(ref this.CaraEncuestada, ref str, ref flag);
+//                                this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, "|Fallo|Fallo en toma de Lecturas Finales: ", str }));
+//                                this.SWRegistro.Flush();
+//                            }
+//                            this.PropiedadesCara[this.CaraEncuestada].FalloTomaLecturaTurno = true;
+//                        }
+//                        if (this.PropiedadesCara[this.CaraEncuestada].AutorizarCara)
+//                        {
+//                            this.PropiedadesCara[this.CaraEncuestada].AutorizarCara = false;
+//                        }
+//                        if (!this.PropiedadesCara[this.CaraEncuestada].EsVentaParcial)
+//                        {
+//                            this.PropiedadesCara[this.CaraEncuestada].EsVentaParcial = true;
+//                        }
+//                        return;
+
+//                    case EstadoCara.WayneDespachoAutorizado:
+//                        if (!this.PropiedadesCara[this.CaraEncuestada].FalloTomaLecturaTurno)
+//                        {
+//                            str = "Cara Bloqueada";
+//                            if (this.PropiedadesCara[this.CaraEncuestada].TomarLecturaAperturaTurno)
+//                            {
+//                                flag = false;
+//                                this.PropiedadesCara[this.CaraEncuestada].TomarLecturaAperturaTurno = false;
+//                                this.oEventos.ReportarCancelacionTurno(ref this.CaraEncuestada, ref str, ref flag);
+//                                this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, "|Fallo|Fallo en toma de Lecturas Iniciales: ", str }));
+//                                this.SWRegistro.Flush();
+//                            }
+//                            if (this.PropiedadesCara[this.CaraEncuestada].TomarLecturaCierreTurno)
+//                            {
+//                                flag = true;
+//                                this.PropiedadesCara[this.CaraEncuestada].TomarLecturaCierreTurno = false;
+//                                this.oEventos.ReportarCancelacionTurno(ref this.CaraEncuestada, ref str, ref flag);
+//                                this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, "|Fallo|Fallo en toma de Lecturas Finales: ", str }));
+//                                this.SWRegistro.Flush();
+//                            }
+//                            this.PropiedadesCara[this.CaraEncuestada].FalloTomaLecturaTurno = true;
+//                        }
+//                        foreach (Grados grados in this.PropiedadesCara[this.CaraEncuestada].ListaGrados)
+//                        {
+//                            this.PropiedadesCara[this.CaraEncuestada].GradoCara = grados.NoGrado;
+//                            if (!this.ProcesoTomaLectura())
+//                            {
+//                                this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, "|Fallo|No respondio comando de obtener Totalizador para Desbloqueo Cara. Grado: ", grados.NoGrado }));
+//                                this.SWRegistro.Flush();
+//                            }
+//                            if (!this.ProcesoEnvioComando(ComandoSurtidor.ObtenerPrecio))
+//                            {
+//                                this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, "|Fallo|No respondio comando de obtener precio para Desbloqueo Cara. Grado: ", grados.NoGrado }));
+//                                this.SWRegistro.Flush();
+//                            }
+//                            this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, "|Proceso|Toma lecturas y precios para desbloqueo de Cara. Manguera:  ", this.PropiedadesCara[this.CaraEncuestada].ListaGrados[grados.NoGrado].MangueraBD, " - Lectura: ", this.PropiedadesCara[this.CaraEncuestada].ListaGrados[grados.NoGrado].Lectura, " - Precio: ", this.PropiedadesCara[this.CaraEncuestada].ListaGrados[grados.NoGrado].PrecioSurtidorNivel1 }));
+//                            this.SWRegistro.Flush();
+//                        }
+//                        return;
+
+//                    default:
+//                        goto Label_1EED;
+//                }
+//                this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, "|Fallo|No respondio comando de obtener Precio para inicio de venta" }));
+//                this.SWRegistro.Flush();
+//            Label_06CF:
+//                if (this.PropiedadesCara[this.CaraEncuestada].AutorizarCara)
+//                {
+//                    this.PropiedadesCara[this.CaraEncuestada].ListaGrados[this.PropiedadesCara[this.CaraEncuestada].GradoVenta].LecturaInicialVenta = this.PropiedadesCara[this.CaraEncuestada].ListaGrados[this.PropiedadesCara[this.CaraEncuestada].GradoVenta].Lectura;
+//                    string str4 = this.PropiedadesCara[this.CaraEncuestada].ListaGrados[this.PropiedadesCara[this.CaraEncuestada].GradoVenta].LecturaInicialVenta.ToString("N3");
+//                    this.oEventos.InformarLecturaInicialVenta(ref this.CaraEncuestada, ref str4);
+//                    this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, "|Evento|Informar Lectura Inicial de Venta: ", str4 }));
+//                    this.SWRegistro.Flush();
+//                    this.PropiedadesCara[this.CaraEncuestada].ListaGrados[this.PropiedadesCara[this.CaraEncuestada].GradoVenta].LecturaInicialImporte = this.PropiedadesCara[this.CaraEncuestada].ListaGrados[this.PropiedadesCara[this.CaraEncuestada].GradoVenta].LecturaImporte;
+//                    string str5 = this.PropiedadesCara[this.CaraEncuestada].ListaGrados[this.PropiedadesCara[this.CaraEncuestada].GradoVenta].LecturaInicialImporte.ToString("N3");
+//                    this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, "|Evento|Informar Lectura Inicial de Importe: ", str5 }));
+//                    this.SWRegistro.Flush();
+//                    if (this.PropiedadesCara[this.CaraEncuestada].PredeterminarVolumen)
+//                    {
+//                        this.PropiedadesCara[this.CaraEncuestada].ValorPredeterminado *= this.PropiedadesCara[this.CaraEncuestada].ListaGrados[this.PropiedadesCara[this.CaraEncuestada].GradoVenta].PrecioNivel1;
+//                        this.PropiedadesCara[this.CaraEncuestada].PredeterminarImporte = true;
+//                        this.PropiedadesCara[this.CaraEncuestada].PredeterminarVolumen = false;
+//                        this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, "|Proceso|Predeterminacion Volumen.  Conversion a dinero: ", this.PropiedadesCara[this.CaraEncuestada].ValorPredeterminado }));
+//                        this.SWRegistro.Flush();
+//                    }
+//                    if (this.PropiedadesCara[this.CaraEncuestada].PredeterminarImporte)
+//                    {
+//                        if (this.ProcesoEnvioComando(ComandoSurtidor.Predeterminar))
+//                        {
+//                            this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, "|Proceso|Predeterminacion exitosa. Importe: ", this.PropiedadesCara[this.CaraEncuestada].ValorPredeterminado }));
+//                            this.SWRegistro.Flush();
+//                        }
+//                        else
+//                        {
+//                            this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, "|Fallo|Proceso de predetermiancion fallido" }));
+//                            this.SWRegistro.Flush();
+//                        }
+//                    }
+//                    Thread.Sleep(0x7d0);
+//                    this.ProcesoEnvioComando(ComandoSurtidor.Estado);
+//                    if ((this.PropiedadesCara[this.CaraEncuestada].Estado != EstadoCara.WayneFinDespachoForzado) && (this.PropiedadesCara[this.CaraEncuestada].Estado == EstadoCara.WayneReposo))
+//                    {
+//                        int num3 = 1;
+//                        do
+//                        {
+//                            if (!this.ProcesoEnvioComando(ComandoSurtidor.Autorizar))
+//                            {
+//                                this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, "|Fallo|No respondi\x00f3 comando de Autorizar Despacho" }));
+//                                this.SWRegistro.Flush();
+//                            }
+//                            else
+//                            {
+//                                this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, "|Proceso|Comando Autorizacion enviado con exito" }));
+//                                this.SWRegistro.Flush();
+//                            }
+//                            this.ProcesoEnvioComando(ComandoSurtidor.Estado);
+//                            num3++;
+//                        }
+//                        while (((((this.PropiedadesCara[this.CaraEncuestada].Estado != EstadoCara.WayneDescolgada) && (this.PropiedadesCara[this.CaraEncuestada].Estado != EstadoCara.WaynePredeterminada)) && ((num3 <= 2) && (this.PropiedadesCara[this.CaraEncuestada].Estado != EstadoCara.WayneFinDespachoForzado))) && ((this.PropiedadesCara[this.CaraEncuestada].Estado != EstadoCara.WayneDespacho) && (this.PropiedadesCara[this.CaraEncuestada].Estado != EstadoCara.WayneFinDespacho_AF))) && (this.PropiedadesCara[this.CaraEncuestada].Estado != EstadoCara.WayneFinDespacho));
+//                    }
+//                    if (this.PropiedadesCara[this.CaraEncuestada].Estado == EstadoCara.WayneFinDespachoForzado)
+//                    {
+//                        str6 = Convert.ToString(this.CaraEncuestada);
+//                        str7 = "Error al Predeterminar. Por Favor Cuelgue la Manguera, predetermine el valor antes de levantar la manguera para realizar la venta satisfactoriamente en la cara: ";
+//                        str7 = str7 + str6;
+//                        flag2 = true;
+//                        flag3 = false;
+//                        str8 = "COM1";
+//                        this.oEventos.ReportarExcepcion(ref str7, ref flag2, ref flag3, ref str8);
+//                        this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, "| Impresion de Error al Predeterminar con Manguera Descolgada" }));
+//                        this.SWRegistro.Flush();
+//                    }
+//                    if ((this.PropiedadesCara[this.CaraEncuestada].Estado == EstadoCara.WaynePredeterminada) || (this.PropiedadesCara[this.CaraEncuestada].Estado == EstadoCara.WayneDescolgada))
+//                    {
+//                        this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, "|Proceso|Comando Autorizacion Aceptado" }));
+//                        this.SWRegistro.Flush();
+//                        this.PropiedadesCara[this.CaraEncuestada].AutorizarCara = false;
+//                        this.PropiedadesCara[this.CaraEncuestada].EsVentaParcial = true;
+//                    }
+//                    else if (this.PropiedadesCara[this.CaraEncuestada].Estado == EstadoCara.CoritecBloqueado_ON)
+//                    {
+//                        this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, "|Proceso|Manguera colgada luego de autorizada" }));
+//                        this.SWRegistro.Flush();
+//                        this.PropiedadesCara[this.CaraEncuestada].AutorizarCara = false;
+//                        this.PropiedadesCara[this.CaraEncuestada].EsVentaParcial = false;
+//                        this.oEventos.ReportarVentaEnCero(ref this.CaraEncuestada);
+//                    }
+//                    else if ((this.PropiedadesCara[this.CaraEncuestada].Estado != EstadoCara.WaynePredeterminada) && (this.PropiedadesCara[this.CaraEncuestada].Estado != EstadoCara.WayneDescolgada))
+//                    {
+//                        this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, "|Fallo|Comando Autorizacion No aceptado" }));
+//                        this.SWRegistro.Flush();
+//                        this.PropiedadesCara[this.CaraEncuestada].AutorizarCara = false;
+//                        this.PropiedadesCara[this.CaraEncuestada].EsVentaParcial = true;
+//                    }
+//                    if (!((this.PropiedadesCara[this.CaraEncuestada].Estado != EstadoCara.WayneFinDespachoForzado) || this.PropiedadesCara[this.CaraEncuestada].AutorizarCara))
+//                    {
+//                        this.PropiedadesCara[this.CaraEncuestada].PosibleErrorFinVenta = true;
+//                    }
+//                    else
+//                    {
+//                        this.PropiedadesCara[this.CaraEncuestada].PosibleErrorFinVenta = false;
+//                    }
+//                }
+//                return;
+//            Label_1D39: ;
+//                this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, " |No acepto el Reset del Estado WaynePredeterminada" }));
+//                this.SWRegistro.Flush();
+//            Label_1D91:
+//                this.ProcesoEnvioComando(ComandoSurtidor.Estado);
+//                if (this.PropiedadesCara[this.CaraEncuestada].Estado == EstadoCara.WayneFinDespachoForzado)
+//                {
+//                    str6 = Convert.ToString(this.CaraEncuestada);
+//                    str7 = "Error al Predeterminar, Surtidor No acepto comando de desbloque. Por Favor Reinicie el surtidor.  Cara: ";
+//                    str7 = str7 + str6;
+//                    flag2 = true;
+//                    flag3 = false;
+//                    str8 = "COM1";
+//                    this.oEventos.ReportarExcepcion(ref str7, ref flag2, ref flag3, ref str8);
+//                    this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, " |Surtidor No acepto comando de desbloque. Por Favor Reinicie el surtidor." }));
+//                    this.SWRegistro.Flush();
+//                }
+//                this.PropiedadesCara[this.CaraEncuestada].ContadorError = 0;
+//            Label_1E71: ;
+//                this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, "|Estado Cara|", this.PropiedadesCara[this.CaraEncuestada].Estado.ToString() }));
+//                this.SWRegistro.Flush();
+//                return;
+//            Label_1EED: ;
+//                this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, "|Proceso|Estado Indeterminado: ", this.PropiedadesCara[this.CaraEncuestada].Estado }));
+//                this.SWRegistro.Flush();
+//            }
+//            catch (Exception exception)
+//            {
+//                this.SWRegistro.WriteLine(string.Concat(new object[] { DateTime.Now, "|", this.CaraEncuestada, "|Excepcion|TomarAccion: ", exception }));
+//                this.SWRegistro.Flush();
+//            }
+//        }
+
+//        public void VerifySizeFile()
+//        {
+//            try
+//            {
+//                FileInfo info = new FileInfo(this.ArchivoTramas);
+//                if (info.Length > 0x2faf080L)
+//                {
+//                    this.SWTramas.Close();
+//                    this.ArchivoTramas = Environment.CurrentDirectory + "/LogueoProtocolo/" + DateTime.Now.ToString("yyyyMMdd") + "-Wayne-Tramas.(" + this.PuertoCom.PortName + ").txt";
+//                    this.SWTramas = File.AppendText(this.ArchivoTramas);
+//                }
+//                info = new FileInfo(this.Archivo);
+//                if (info.Length > 0x1c9c380L)
+//                {
+//                    this.SWRegistro.Close();
+//                    this.Archivo = Environment.CurrentDirectory + "/LogueoProtocolo/" + DateTime.Now.ToString("yyyyMMdd") + "-Wayne-Sucesos(" + this.PuertoCom.PortName + ").txt";
+//                    this.SWRegistro = File.AppendText(this.Archivo);
+//                }
+//            }
+//            catch (Exception exception)
+//            {
+//                throw exception;
+//            }
+//        }
+
+//        public enum ComandoSurtidor
+//        {
+//            Estado,
+//            Autorizar,
+//            ObtenerPrecio,
+//            ObtenerVentaDinero,
+//            ObtenerVentaVolumen,
+//            EstalecerPrecio,
+//            Predeterminar,
+//            ObtenerTotalizador_I,
+//            ObtenerTotalizador_II,
+//            ObtenerTotalizadorImporte_I,
+//            ObtenerTotalizadorImporte_II,
+//            FinVenta_AF,
+//            OffEstado_AF,
+//            contadorError
+//        }
+//    }
+//}
+

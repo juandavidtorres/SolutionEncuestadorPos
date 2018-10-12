@@ -1,0 +1,20 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 11.00
+# Visual Studio 2010
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GasolutionsFAFNIR", "GasolutionsFAFNIR.csproj", "{0D15646B-97AB-4F5D-BA12-ED5827FC82DD}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{0D15646B-97AB-4F5D-BA12-ED5827FC82DD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0D15646B-97AB-4F5D-BA12-ED5827FC82DD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0D15646B-97AB-4F5D-BA12-ED5827FC82DD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0D15646B-97AB-4F5D-BA12-ED5827FC82DD}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

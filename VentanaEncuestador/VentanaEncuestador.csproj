@@ -1,0 +1,268 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProductVersion>8.0.50727</ProductVersion>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectGuid>{A590BBE3-B3D5-4447-A9E2-A68259F1615C}</ProjectGuid>
+    <OutputType>WinExe</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>VentanaEncuestadorFullStation</RootNamespace>
+    <AssemblyName>VentanaEncuestadorFullStation</AssemblyName>
+    <SccProjectName>SAK</SccProjectName>
+    <SccLocalPath>SAK</SccLocalPath>
+    <SccAuxPath>SAK</SccAuxPath>
+    <SccProvider>SAK</SccProvider>
+    <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
+    <FileUpgradeFlags>
+    </FileUpgradeFlags>
+    <UpgradeBackupLocation>
+    </UpgradeBackupLocation>
+    <OldToolsVersion>2.0</OldToolsVersion>
+    <IsWebBootstrapper>false</IsWebBootstrapper>
+    <PublishUrl>publish\</PublishUrl>
+    <Install>true</Install>
+    <InstallFrom>Disk</InstallFrom>
+    <UpdateEnabled>false</UpdateEnabled>
+    <UpdateMode>Foreground</UpdateMode>
+    <UpdateInterval>7</UpdateInterval>
+    <UpdateIntervalUnits>Days</UpdateIntervalUnits>
+    <UpdatePeriodically>false</UpdatePeriodically>
+    <UpdateRequired>false</UpdateRequired>
+    <MapFileExtensions>true</MapFileExtensions>
+    <ApplicationRevision>0</ApplicationRevision>
+    <ApplicationVersion>1.0.0.%2a</ApplicationVersion>
+    <UseApplicationTrust>false</UseApplicationTrust>
+    <BootstrapperEnabled>true</BootstrapperEnabled>
+    <TargetFrameworkProfile />
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <CodeAnalysisRuleSet>AllRules.ruleset</CodeAnalysisRuleSet>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <CodeAnalysisRuleSet>AllRules.ruleset</CodeAnalysisRuleSet>
+  </PropertyGroup>
+  <PropertyGroup>
+    <StartupObject>VentanaEncuestadorFullStation.Program</StartupObject>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x86'">
+    <DebugSymbols>true</DebugSymbols>
+    <OutputPath>bin\x86\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <DebugType>full</DebugType>
+    <PlatformTarget>x86</PlatformTarget>
+    <CodeAnalysisLogFile>bin\Debug\VentanaEncuestadorFullStation.exe.CodeAnalysisLog.xml</CodeAnalysisLogFile>
+    <CodeAnalysisUseTypeNameInSuppression>true</CodeAnalysisUseTypeNameInSuppression>
+    <CodeAnalysisModuleSuppressionsFile>GlobalSuppressions.cs</CodeAnalysisModuleSuppressionsFile>
+    <ErrorReport>prompt</ErrorReport>
+    <CodeAnalysisRuleSet>AllRules.ruleset</CodeAnalysisRuleSet>
+    <CodeAnalysisRuleSetDirectories>;C:\Program Files\Microsoft Visual Studio 10.0\Team Tools\Static Analysis Tools\\Rule Sets</CodeAnalysisRuleSetDirectories>
+    <CodeAnalysisIgnoreBuiltInRuleSets>false</CodeAnalysisIgnoreBuiltInRuleSets>
+    <CodeAnalysisRuleDirectories>;C:\Program Files\Microsoft Visual Studio 10.0\Team Tools\Static Analysis Tools\FxCop\\Rules</CodeAnalysisRuleDirectories>
+    <CodeAnalysisIgnoreBuiltInRules>false</CodeAnalysisIgnoreBuiltInRules>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x86'">
+    <OutputPath>bin\x86\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <Optimize>true</Optimize>
+    <DebugType>pdbonly</DebugType>
+    <PlatformTarget>x86</PlatformTarget>
+    <CodeAnalysisLogFile>bin\Release\VentanaEncuestadorFullStation.exe.CodeAnalysisLog.xml</CodeAnalysisLogFile>
+    <CodeAnalysisUseTypeNameInSuppression>true</CodeAnalysisUseTypeNameInSuppression>
+    <CodeAnalysisModuleSuppressionsFile>GlobalSuppressions.cs</CodeAnalysisModuleSuppressionsFile>
+    <ErrorReport>prompt</ErrorReport>
+    <CodeAnalysisRuleSet>AllRules.ruleset</CodeAnalysisRuleSet>
+    <CodeAnalysisRuleSetDirectories>;C:\Program Files\Microsoft Visual Studio 10.0\Team Tools\Static Analysis Tools\\Rule Sets</CodeAnalysisRuleSetDirectories>
+    <CodeAnalysisRuleDirectories>;C:\Program Files\Microsoft Visual Studio 10.0\Team Tools\Static Analysis Tools\FxCop\\Rules</CodeAnalysisRuleDirectories>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="Falcon">
+      <HintPath>..\GasolutionsFalcon\bin\x86\Debug\Falcon.dll</HintPath>
+    </Reference>
+    <Reference Include="GasolutionsHongYang">
+      <HintPath>..\GasolutionsHongYang\bin\x86\Debug\GasolutionsHongYang.dll</HintPath>
+    </Reference>
+    <Reference Include="GasolutionsTokheim, Version=1.0.0.0, Culture=neutral, processorArchitecture=x86">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\GasolutionsTokheim\bin\x86\Debug\GasolutionsTokheim.dll</HintPath>
+    </Reference>
+    <Reference Include="GasolutionsTokheim_Loop">
+      <HintPath>..\GasolutionsTokheim_Loop\bin\x86\Debug\GasolutionsTokheim_Loop.dll</HintPath>
+    </Reference>
+    <Reference Include="Gilbarco_Extended, Version=2010.3.19.1200, Culture=neutral, processorArchitecture=x86">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\GasolutionsGilbarco_Extended\bin\x86\Debug\Gilbarco_Extended.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.QualityTools.Testing.Fakes, Version=11.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL" />
+    <Reference Include="Protocolo2A">
+      <HintPath>..\Gasolutions2A\bin\x86\Debug\Protocolo2A.dll</HintPath>
+    </Reference>
+    <Reference Include="System" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Deployment" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="FrmMain.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="FrmMain.Designer.cs">
+      <DependentUpon>FrmMain.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Program.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <EmbeddedResource Include="FrmMain.resx">
+      <SubType>Designer</SubType>
+      <DependentUpon>FrmMain.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Properties\Resources.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <Compile Include="Properties\Resources.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Resources.resx</DependentUpon>
+      <DesignTime>True</DesignTime>
+    </Compile>
+    <None Include="app.config" />
+    <Fakes Include="Fakes\FillPos_IMW.fakes" />
+    <None Include="Properties\Settings.settings">
+      <Generator>SettingsSingleFileGenerator</Generator>
+      <LastGenOutput>Settings.Designer.cs</LastGenOutput>
+    </None>
+    <Compile Include="Properties\Settings.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Settings.settings</DependentUpon>
+      <DesignTimeSharedInput>True</DesignTimeSharedInput>
+    </Compile>
+  </ItemGroup>
+  <ItemGroup>
+    <COMReference Include="SharedEventsFuelStation">
+      <Guid>{687F1EE0-1601-429C-869E-7E9CB22B61DF}</Guid>
+      <VersionMajor>1</VersionMajor>
+      <VersionMinor>0</VersionMinor>
+      <Lcid>0</Lcid>
+      <WrapperTool>tlbimp</WrapperTool>
+      <Isolated>False</Isolated>
+      <EmbedInteropTypes>True</EmbedInteropTypes>
+    </COMReference>
+    <COMReference Include="VBA">
+      <Guid>{000204EF-0000-0000-C000-000000000046}</Guid>
+      <VersionMajor>6</VersionMajor>
+      <VersionMinor>0</VersionMinor>
+      <Lcid>9</Lcid>
+      <WrapperTool>tlbimp</WrapperTool>
+      <Isolated>False</Isolated>
+    </COMReference>
+  </ItemGroup>
+  <ItemGroup>
+    <BootstrapperPackage Include="Microsoft.Net.Client.3.5">
+      <Visible>False</Visible>
+      <ProductName>.NET Framework 3.5 SP1 Client Profile</ProductName>
+      <Install>false</Install>
+    </BootstrapperPackage>
+    <BootstrapperPackage Include="Microsoft.Net.Framework.3.5.SP1">
+      <Visible>False</Visible>
+      <ProductName>.NET Framework 3.5 SP1</ProductName>
+      <Install>true</Install>
+    </BootstrapperPackage>
+    <BootstrapperPackage Include="Microsoft.Windows.Installer.3.1">
+      <Visible>False</Visible>
+      <ProductName>Windows Installer 3.1</ProductName>
+      <Install>true</Install>
+    </BootstrapperPackage>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Logo.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\Logo2.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\FabricaProtocolosC\HP_FabricaProtocolosC.csproj">
+      <Project>{4461d6ef-a284-442a-97b3-7b962f194882}</Project>
+      <Name>HP_FabricaProtocolosC</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\FabricaProtocolosVB\HP_FabricaProtocolosVB.vbproj">
+      <Project>{001bef3c-26d3-4bb1-840e-0ef77f49a37c}</Project>
+      <Name>HP_FabricaProtocolosVB</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Gasolutions2A\Gasolutions_2A.csproj">
+      <Project>{e2e47dd5-07ee-4068-90b0-f86dd36acb37}</Project>
+      <Name>Gasolutions_2A</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\GasolutionsBennett\Bennett.csproj">
+      <Project>{8ff61032-13b3-47de-aeb9-49dfd69de897}</Project>
+      <Name>Bennett</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\GasolutionsCompac\GasolutionsCompac.csproj">
+      <Project>{d62b0b1c-146a-467f-ad6c-0473d7d369de}</Project>
+      <Name>GasolutionsCompac</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\GasolutionsCoritec\GasolutionsCoritec.csproj">
+      <Project>{1309d69a-b19a-4724-a63b-052451838086}</Project>
+      <Name>GasolutionsCoritec</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\GasolutionsDevelco\GasolutionsDevelco.csproj">
+      <Project>{b9dc7c06-0048-4abd-a31c-5607718850c2}</Project>
+      <Name>GasolutionsDevelco</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\GasolutionsFAFNIR\GasolutionsFAFNIR.csproj">
+      <Project>{0d15646b-97ab-4f5d-ba12-ed5827fc82dd}</Project>
+      <Name>GasolutionsFAFNIR</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\GasolutionsGilbarcoKraus\GasolutionsGilbarcoKraus.csproj">
+      <Project>{dddb0451-5cd3-4e4c-ad25-5adf3592b499}</Project>
+      <Name>GasolutionsGilbarcoKraus</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\GasolutionsGilbarco\Gilbarco.csproj">
+      <Project>{b8506e5d-1eb8-4c3c-9a74-1d5846ef58a7}</Project>
+      <Name>Gilbarco</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\GasolutionsH2P_Safe\GasolutionsH2P_Safe.csproj">
+      <Project>{eab2e6ef-9ed9-484c-b145-9fe6d369ca48}</Project>
+      <Name>GasolutionsH2P_Safe</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\GasolutionsPumpControl_V1.15 Autorizacion\GasolutionsPumpControl_Autoriza.csproj">
+      <Project>{ba5b950f-e32d-417d-81fb-b7d74c516782}</Project>
+      <Name>GasolutionsPumpControl_Autoriza</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\GasolutionsVeederRoot\GasolutionsVeederRoot.csproj">
+      <Project>{ae0cb403-78b1-4729-b597-d65dc0b97c90}</Project>
+      <Name>GasolutionsVeederRoot</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\GasolutionsWayne\Wayne.csproj">
+      <Project>{68300427-4a4a-41e7-bee4-c5d2aa5cf8da}</Project>
+      <Name>Wayne</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Petromecanica\PetroMecanica.csproj">
+      <Project>{a3ee153b-5198-4107-9523-040505f8b73b}</Project>
+      <Name>PetroMecanica</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
+  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
+       Other similar extension points exist, see Microsoft.Common.targets.
+  <Target Name="BeforeBuild">
+  </Target>
+  <Target Name="AfterBuild">
+  </Target>
+  -->
+</Project>
